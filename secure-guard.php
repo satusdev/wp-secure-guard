@@ -1,0 +1,79 @@
+<?php
+/**
+ * Plugin Name: Secure Guard
+ * Description: REST API and sensitive endpoint security guard for WordPress.
+ * Version: 1.0.0
+ * Requires at least: 6.4
+ * Requires PHP: 8.1
+ * Author: satusdev
+ * License: GPL-2.0-or-later
+ * Text Domain: secure-guard
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+define('SECURE_GUARD_VERSION', '1.0.0');
+define('SECURE_GUARD_FILE', __FILE__);
+define('SECURE_GUARD_DIR', plugin_dir_path(__FILE__));
+
+require_once SECURE_GUARD_DIR . 'includes/class-config.php';
+require_once SECURE_GUARD_DIR . 'includes/class-loader.php';
+require_once SECURE_GUARD_DIR . 'includes/install/class-installer.php';
+require_once SECURE_GUARD_DIR . 'includes/data/class-token-repository.php';
+require_once SECURE_GUARD_DIR . 'includes/data/class-log-repository.php';
+require_once SECURE_GUARD_DIR . 'includes/data/class-rate-limit-repository.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-token-manager.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-ip-whitelist.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-rate-limit.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-endpoint-blocker.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-user-enumeration-blocker.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-xmlrpc-protector.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-security-headers.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-rest-guard.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-login-protection.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-traffic-firewall.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-wp-hardening.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-admin-area-protector.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-file-integrity-monitor.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-security-events.php';
+require_once SECURE_GUARD_DIR . 'admin/class-admin-menu.php';
+require_once SECURE_GUARD_DIR . 'admin/class-dashboard-page.php';
+require_once SECURE_GUARD_DIR . 'admin/class-settings-page.php';
+require_once SECURE_GUARD_DIR . 'admin/class-tokens-page.php';
+require_once SECURE_GUARD_DIR . 'admin/class-rules-page.php';
+require_once SECURE_GUARD_DIR . 'admin/class-logs-page.php';
+require_once SECURE_GUARD_DIR . 'includes/class-plugin.php';
+
+function secure_guard_bootstrap(): Secure_Guard_Plugin {
+    static $plugin = null;
+
+    if ($plugin instanceof Secure_Guard_Plugin) {
+        return $plugin;
+    }
+
+    $plugin = new Secure_Guard_Plugin();
+    $plugin->register_hooks();
+
+    return $plugin;
+}
+
+register_activation_hook(
+    SECURE_GUARD_FILE,
+    static function (): void {
+        Secure_Guard_Installer::activate();
+    }
+);
+
+register_deactivation_hook(
+    SECURE_GUARD_FILE,
+    static function (): void {
+        $timestamp = wp_next_scheduled('secure_guard_integrity_scan');
+        if ($timestamp) {
+            wp_unschedule_event($timestamp, 'secure_guard_integrity_scan');
+        }
+    }
+);
+
+add_action('plugins_loaded', 'secure_guard_bootstrap');
