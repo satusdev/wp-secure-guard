@@ -37,26 +37,33 @@ final class Secure_Guard_Tokens_Page {
         $allowed_ips = sanitize_textarea_field((string) ($_POST['allowed_ips'] ?? ''));
         $rate_limit = isset($_POST['rate_limit_per_minute']) && $_POST['rate_limit_per_minute'] !== '' ? max(1, (int) $_POST['rate_limit_per_minute']) : null;
         $expires_at = sanitize_text_field((string) ($_POST['expires_at'] ?? ''));
+        $ttl_minutes = max(1, (int) ($this->settings['jwt_ttl_minutes'] ?? 60));
+        $default_expires_at = gmdate('Y-m-d H:i:s', time() + ($ttl_minutes * MINUTE_IN_SECONDS));
         if ($expires_at !== '') {
-            $expires_at = gmdate('Y-m-d H:i:s', strtotime($expires_at));
+            $expires_timestamp = strtotime($expires_at);
+            $expires_at = $expires_timestamp !== false ? gmdate('Y-m-d H:i:s', $expires_timestamp) : $default_expires_at;
         } else {
-            $ttl_minutes = max(1, (int) ($this->settings['jwt_ttl_minutes'] ?? 60));
-            $expires_at = gmdate('Y-m-d H:i:s', time() + ($ttl_minutes * MINUTE_IN_SECONDS));
+            $expires_at = $default_expires_at;
         }
 
         $jti = str_replace('-', '', wp_generate_uuid4());
         $kid = 'default';
         $token_id = $this->tokens->create_token($name, '', $scopes, $allowed_endpoints, $allowed_ips, $rate_limit, $expires_at, 'jwt', $jti, $kid);
+        if ($token_id <= 0) {
+            wp_safe_redirect(admin_url('admin.php?page=secure-guard-tokens&error=db'));
+            exit;
+        }
+
         $token_row = $this->tokens->get_active_by_id($token_id);
         if (!$token_row) {
-            wp_safe_redirect(admin_url('admin.php?page=secure-guard-tokens&error=1'));
+            wp_safe_redirect(admin_url('admin.php?page=secure-guard-tokens&error=lookup'));
             exit;
         }
 
         $plain_token = (string) $this->token_manager->issue_jwt_for_token_row($token_row);
         if ($plain_token === '') {
             $this->tokens->delete($token_id);
-            wp_safe_redirect(admin_url('admin.php?page=secure-guard-tokens&error=1'));
+            wp_safe_redirect(admin_url('admin.php?page=secure-guard-tokens&error=jwt'));
             exit;
         }
 
@@ -124,6 +131,7 @@ final class Secure_Guard_Tokens_Page {
         <div class="wrap secure-guard-ui">
             <h1><?php echo esc_html__('Tokens', 'secure-guard'); ?></h1>
             <p class="description"><?php echo esc_html__('JWT token values are hidden by default. You can reveal recently generated tokens on demand for a short time.', 'secure-guard'); ?></p>
+            <div class="notice notice-info"><p><?php echo esc_html__('REST API is in JWT-only mode. Cookie/session role bypass is disabled; send Authorization: Bearer TOKEN for API access.', 'secure-guard'); ?></p></div>
 
             <?php if (!empty($_GET['created'])): ?>
                 <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token created successfully.', 'secure-guard'); ?></p></div>
@@ -138,7 +146,14 @@ final class Secure_Guard_Tokens_Page {
             <?php endif; ?>
 
             <?php if (!empty($_GET['error'])): ?>
-                <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Token could not be created. Check JWT configuration and try again.', 'secure-guard'); ?></p></div>
+                <?php $error_code = sanitize_key((string) $_GET['error']); ?>
+                <?php if ($error_code === 'db'): ?>
+                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Token could not be created because database insert failed. Check token table schema and DB permissions.', 'secure-guard'); ?></p></div>
+                <?php elseif ($error_code === 'lookup'): ?>
+                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Token row was created but could not be loaded. Check database consistency and try again.', 'secure-guard'); ?></p></div>
+                <?php else: ?>
+                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Token could not be created. Check JWT configuration and try again.', 'secure-guard'); ?></p></div>
+                <?php endif; ?>
             <?php endif; ?>
 
             <?php if ($created_token): ?>
@@ -223,8 +238,8 @@ final class Secure_Guard_Tokens_Page {
 
             <div class="card" style="max-width:1200px;padding:16px;margin-top:16px;">
                 <h2 style="margin-top:0;"><?php echo esc_html__('Usage & Verification', 'secure-guard'); ?></h2>
-                <p class="description"><?php echo esc_html__('Replace SITE and TOKEN values. Use Logs page to confirm blocked/allowed decisions.', 'secure-guard'); ?></p>
-                <pre style="white-space:pre-wrap;"><?php echo esc_html("# Without token (expect 403 when REST lock is enabled)\ncurl https://SITE/wp-json/wp/v2/posts\n\n# With token (expect route response when endpoint exists and policy allows)\ncurl -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/posts\n\n# Sensitive endpoint check (requires full_api_access scope)\ncurl -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/users\n\n# Missing route check (expect WordPress 404 rest_no_route)\ncurl -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v99/does-not-exist"); ?></pre>
+                <p class="description"><?php echo esc_html__('Replace SITE and TOKEN values. Without token expect 403; with valid token expect route-specific responses.', 'secure-guard'); ?></p>
+                <pre style="white-space:pre-wrap;"><?php echo esc_html("# Without token (expect 403)\ncurl -i https://SITE/wp-json/wp/v2/posts\n\n# With token to non-sensitive route\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/posts\n\n# With token to sensitive route (requires full_api_access when enabled)\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/users"); ?></pre>
             </div>
         </div>
         <?php

@@ -7,15 +7,14 @@
 
 ## Domain
 
-Secure Guard is a WordPress security plugin that enforces hard deny behavior for
-all WordPress REST API routes and methods, plus sensitive endpoint and
-scanner-path protections.
+Secure Guard is a WordPress security plugin that enforces JWT-only REST API
+access with no cookie/role bypass, plus sensitive endpoint and scanner-path
+protections.
 
 ### Core Capabilities
 
-- REST API hard shutdown for all routes and methods (plugin-level 403 policy).
-- JWT token system retained for administrative lifecycle compatibility; REST
-  runtime currently does not grant JWT-based route access.
+- REST API JWT-only access mode with strict token/IP/route/rate policy checks.
+- No cookie/session role bypass for REST authentication decisions.
 - Token values are hidden by default in admin and can only be re-shown briefly
   for recently generated tokens in the same admin session.
 - Fallback users endpoint injection is disabled in tough mode.
@@ -59,8 +58,8 @@ scanner-path protections.
 
 4. Guard pipeline evaluates in this order:
 
-- REST hard deny policy for all REST requests/methods
-- Sensitive route and protected path policy for non-REST requests
+- REST JWT authentication requirement for all REST requests
+- Sensitive route scope policy and endpoint/path protections
 - Secondary guards (IP/rate/login/admin-area/file integrity)
 
 5. Denials are logged to audit storage with normalized metadata.

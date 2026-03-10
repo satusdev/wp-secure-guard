@@ -18,7 +18,8 @@ final class Secure_Guard_Token_Repository {
 
     public function create_token(string $name, string $plain_token, array $scopes, string $allowed_endpoints, string $allowed_ips, ?int $rate_limit_per_minute, ?string $expires_at, string $token_type = 'jwt', ?string $jti = null, ?string $kid = null): int {
         $token_type = 'jwt';
-        $hash = null;
+        $hash_source = $jti ?: wp_generate_uuid4();
+        $hash = hash('sha256', $hash_source . '|' . wp_generate_uuid4() . '|' . microtime(true));
         $now = current_time('mysql', true);
 
         $this->db->insert(

@@ -15,17 +15,17 @@ final class Secure_Guard_Rules_Page {
 
         echo '<div class="wrap secure-guard-ui">';
         echo '<h1>' . esc_html__('API Rules', 'secure-guard') . '</h1>';
-        echo '<p class="description">' . esc_html__('Secure Guard enforces strict scanner-facing defaults. REST API is force-disabled for every route and method.', 'secure-guard') . '</p>';
+        echo '<p class="description">' . esc_html__('Secure Guard enforces strict scanner-facing defaults with JWT-only REST access.', 'secure-guard') . '</p>';
 
         echo '<div class="card" style="max-width:1100px;padding:16px;">';
         echo '<h2 style="margin-top:0;">' . esc_html__('REST Policy', 'secure-guard') . '</h2>';
         echo '<ul style="margin-top:0;">';
-        echo '<li>' . esc_html__('All REST namespaces and routes are blocked for all clients.', 'secure-guard') . '</li>';
-        echo '<li>' . esc_html__('All HTTP methods are blocked: GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD.', 'secure-guard') . '</li>';
-        echo '<li>' . esc_html__('No JWT, cookie role, or token scope exceptions are applied while this policy is active.', 'secure-guard') . '</li>';
-        echo '<li><code>/wp-json</code> - ' . esc_html__('Blocked.', 'secure-guard') . '</li>';
-        echo '<li><code>/wp-json/wp/v2/users</code> - ' . esc_html__('Blocked.', 'secure-guard') . '</li>';
-        echo '<li><code>?rest_route=/wp/v2/posts</code> - ' . esc_html__('Blocked.', 'secure-guard') . '</li>';
+        echo '<li>' . esc_html__('All REST requests require a valid JWT bearer token.', 'secure-guard') . '</li>';
+        echo '<li>' . esc_html__('Cookie/session role bypass is disabled for REST.', 'secure-guard') . '</li>';
+        echo '<li>' . esc_html__('Token endpoint allowlist, IP allowlist, and token-specific rate limits are enforced.', 'secure-guard') . '</li>';
+        echo '<li>' . esc_html__('Sensitive endpoints (for example users/settings/plugins) require full_api_access when that rule is enabled.', 'secure-guard') . '</li>';
+        echo '<li><code>/wp-json/wp/v2/posts</code> - ' . esc_html__('Allowed only with valid JWT and matching token policy.', 'secure-guard') . '</li>';
+        echo '<li><code>/wp-json/wp/v2/users</code> - ' . esc_html__('Requires full_api_access scope when sensitive endpoint blocking is enabled.', 'secure-guard') . '</li>';
         echo '</ul>';
         echo '</div>';
 
@@ -42,8 +42,8 @@ final class Secure_Guard_Rules_Page {
 
         echo '<div class="card" style="max-width:1100px;padding:16px;margin-top:16px;">';
         echo '<h2 style="margin-top:0;">' . esc_html__('Usage & Verification', 'secure-guard') . '</h2>';
-        echo '<p class="description">' . esc_html__('Replace SITE. Every command should return HTTP 403 from plugin policy.', 'secure-guard') . '</p>';
-        echo '<pre style="white-space:pre-wrap;">' . esc_html("# 1) REST index\ncurl -i https://SITE/wp-json/\n\n# 2) Users endpoint\ncurl -i https://SITE/wp-json/wp/v2/users\n\n# 3) Methods are blocked too\ncurl -i -X POST https://SITE/wp-json/wp/v2/posts\ncurl -i -X PUT https://SITE/wp-json/wp/v2/posts/1\ncurl -i -X DELETE https://SITE/wp-json/wp/v2/posts/1\n\n# 4) Legacy rest_route query format\ncurl -i \"https://SITE/?rest_route=/wp/v2/posts\"") . '</pre>';
+        echo '<p class="description">' . esc_html__('Replace SITE and TOKEN values. Without JWT expect 403; with valid JWT expect route-specific responses.', 'secure-guard') . '</p>';
+        echo '<pre style="white-space:pre-wrap;">' . esc_html("# 1) Without token (expect 403)\ncurl -i https://SITE/wp-json/wp/v2/posts\n\n# 2) With token to non-sensitive route\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/posts\n\n# 3) With token to sensitive route (requires full_api_access when enabled)\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/users\n\n# 4) Legacy rest_route query format\ncurl -i -H \"Authorization: Bearer TOKEN\" \"https://SITE/?rest_route=/wp/v2/posts\"") . '</pre>';
         echo '</div>';
         echo '</div>';
     }

@@ -73,6 +73,11 @@
   checks.
 - 2026-03-10 12:06-12:07: Updated `PROJECT.md` architecture/source-of-truth to
   document global REST deny behavior.
+- 2026-03-10 12:18-12:28: Switched REST guard to Mode B (JWT-only access),
+  removed cookie/role REST bypass, re-enabled token route/IP/rate checks, and
+  kept sensitive endpoint scope enforcement.
+- 2026-03-10 12:28-12:31: Updated Settings, API Rules, Tokens UI copy and
+  `PROJECT.md` from force-disable wording to JWT-only mode wording.
 
 ## Verification Results
 
@@ -111,6 +116,11 @@
   - `PUT /wp-json/wp/v2/posts/1` -> `403`
   - `DELETE /wp-json/wp/v2/posts/1` -> `403`
   - `GET /?rest_route=/wp/v2/users` -> `403`
+- Post-switch verification notes:
+  - Local plugin source now implements JWT-only REST mode.
+  - Live staging still returns `secure_guard_rest_disabled` for token and
+    non-token requests, indicating deployment/runtime still serves previous
+    force-disable build and requires plugin code deployment + runtime reload.
 
 ## Pass Condition
 
