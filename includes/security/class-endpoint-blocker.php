@@ -28,11 +28,38 @@ final class Secure_Guard_Endpoint_Blocker {
     }
 
     public function is_protected_path_request(string $uri): bool {
-        $sensitive = ['wp-config.php', '/.env', '/.git', '/wp-content/debug.log', '/xmlrpc.php'];
-        foreach ($sensitive as $needle) {
-            if (stripos($uri, $needle) !== false) {
+        $path = strtolower((string) (parse_url($uri, PHP_URL_PATH) ?: ''));
+        if ($path === '') {
+            return false;
+        }
+
+        $exact_paths = [
+            '/wp-config.php',
+            '/wp-config-sample.php',
+            '/.env',
+            '/.git',
+            '/wp-content/debug.log',
+            '/app/debug.log',
+            '/xmlrpc.php',
+            '/wp/xmlrpc.php',
+            '/wp-cron.php',
+            '/wp/wp-cron.php',
+            '/readme.html',
+            '/wp/readme.html',
+            '/license.txt',
+            '/wp/license.txt',
+            '/phpinfo.php',
+            '/info.php',
+        ];
+
+        foreach ($exact_paths as $blocked_path) {
+            if ($path === $blocked_path || str_starts_with($path, $blocked_path . '/')) {
                 return true;
             }
+        }
+
+        if (preg_match('#/(db|database|backup|dump)[^/]*\.(sql|zip|gz|tar|bz2)$#i', $path) === 1) {
+            return true;
         }
 
         return false;

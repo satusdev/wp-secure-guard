@@ -18,6 +18,10 @@ define('SECURE_GUARD_VERSION', '1.0.0');
 define('SECURE_GUARD_FILE', __FILE__);
 define('SECURE_GUARD_DIR', plugin_dir_path(__FILE__));
 
+if (file_exists(SECURE_GUARD_DIR . 'vendor/autoload.php')) {
+    require_once SECURE_GUARD_DIR . 'vendor/autoload.php';
+}
+
 require_once SECURE_GUARD_DIR . 'includes/class-config.php';
 require_once SECURE_GUARD_DIR . 'includes/class-loader.php';
 require_once SECURE_GUARD_DIR . 'includes/install/class-installer.php';
@@ -37,6 +41,7 @@ require_once SECURE_GUARD_DIR . 'includes/security/class-traffic-firewall.php';
 require_once SECURE_GUARD_DIR . 'includes/security/class-wp-hardening.php';
 require_once SECURE_GUARD_DIR . 'includes/security/class-admin-area-protector.php';
 require_once SECURE_GUARD_DIR . 'includes/security/class-file-integrity-monitor.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-security-maintenance.php';
 require_once SECURE_GUARD_DIR . 'includes/security/class-security-events.php';
 require_once SECURE_GUARD_DIR . 'admin/class-admin-menu.php';
 require_once SECURE_GUARD_DIR . 'admin/class-dashboard-page.php';
@@ -48,6 +53,11 @@ require_once SECURE_GUARD_DIR . 'includes/class-plugin.php';
 
 function secure_guard_bootstrap(): Secure_Guard_Plugin {
     static $plugin = null;
+
+    $db_version = get_option(Secure_Guard_Config::DB_VERSION_OPTION, '0.0.0');
+    if ((string) $db_version !== Secure_Guard_Config::DB_VERSION) {
+        Secure_Guard_Installer::activate();
+    }
 
     if ($plugin instanceof Secure_Guard_Plugin) {
         return $plugin;
@@ -72,6 +82,11 @@ register_deactivation_hook(
         $timestamp = wp_next_scheduled('secure_guard_integrity_scan');
         if ($timestamp) {
             wp_unschedule_event($timestamp, 'secure_guard_integrity_scan');
+        }
+
+        $log_retention_timestamp = wp_next_scheduled('secure_guard_log_retention_purge');
+        if ($log_retention_timestamp) {
+            wp_unschedule_event($log_retention_timestamp, 'secure_guard_log_retention_purge');
         }
     }
 );

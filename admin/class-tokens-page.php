@@ -8,9 +8,13 @@ final class Secure_Guard_Tokens_Page {
     private const RECENT_TOKENS_TTL = 600;
 
     private Secure_Guard_Token_Repository $tokens;
+    private Secure_Guard_Token_Manager $token_manager;
+    private array $settings;
 
-    public function __construct(Secure_Guard_Token_Repository $tokens) {
+    public function __construct(Secure_Guard_Token_Repository $tokens, Secure_Guard_Token_Manager $token_manager, array $settings) {
         $this->tokens = $tokens;
+        $this->token_manager = $token_manager;
+        $this->settings = $settings;
     }
 
     public function register(): void {
@@ -28,14 +32,33 @@ final class Secure_Guard_Tokens_Page {
         $name = sanitize_text_field((string) ($_POST['name'] ?? 'Token'));
         $scopes_raw = sanitize_text_field((string) ($_POST['scope'] ?? 'read_posts'));
         $scopes = array_filter(array_map('sanitize_key', array_map('trim', explode(',', $scopes_raw))));
+
         $allowed_endpoints = sanitize_textarea_field((string) ($_POST['allowed_endpoints'] ?? ''));
         $allowed_ips = sanitize_textarea_field((string) ($_POST['allowed_ips'] ?? ''));
         $rate_limit = isset($_POST['rate_limit_per_minute']) && $_POST['rate_limit_per_minute'] !== '' ? max(1, (int) $_POST['rate_limit_per_minute']) : null;
         $expires_at = sanitize_text_field((string) ($_POST['expires_at'] ?? ''));
-        $expires_at = $expires_at !== '' ? gmdate('Y-m-d H:i:s', strtotime($expires_at)) : null;
+        if ($expires_at !== '') {
+            $expires_at = gmdate('Y-m-d H:i:s', strtotime($expires_at));
+        } else {
+            $ttl_minutes = max(1, (int) ($this->settings['jwt_ttl_minutes'] ?? 60));
+            $expires_at = gmdate('Y-m-d H:i:s', time() + ($ttl_minutes * MINUTE_IN_SECONDS));
+        }
 
-        $plain_token = 'sapg_' . wp_generate_password(24, false, false);
-        $token_id = $this->tokens->create_token($name, $plain_token, $scopes, $allowed_endpoints, $allowed_ips, $rate_limit, $expires_at);
+        $jti = str_replace('-', '', wp_generate_uuid4());
+        $kid = 'default';
+        $token_id = $this->tokens->create_token($name, '', $scopes, $allowed_endpoints, $allowed_ips, $rate_limit, $expires_at, 'jwt', $jti, $kid);
+        $token_row = $this->tokens->get_active_by_id($token_id);
+        if (!$token_row) {
+            wp_safe_redirect(admin_url('admin.php?page=secure-guard-tokens&error=1'));
+            exit;
+        }
+
+        $plain_token = (string) $this->token_manager->issue_jwt_for_token_row($token_row);
+        if ($plain_token === '') {
+            $this->tokens->delete($token_id);
+            wp_safe_redirect(admin_url('admin.php?page=secure-guard-tokens&error=1'));
+            exit;
+        }
 
         $recent_tokens = $this->get_recent_tokens();
         $recent_tokens[$token_id] = $plain_token;
@@ -100,7 +123,7 @@ final class Secure_Guard_Tokens_Page {
         ?>
         <div class="wrap secure-guard-ui">
             <h1><?php echo esc_html__('Tokens', 'secure-guard'); ?></h1>
-            <p class="description"><?php echo esc_html__('Token values are hidden by default. You can reveal recently generated tokens on demand for a short time.', 'secure-guard'); ?></p>
+            <p class="description"><?php echo esc_html__('JWT token values are hidden by default. You can reveal recently generated tokens on demand for a short time.', 'secure-guard'); ?></p>
 
             <?php if (!empty($_GET['created'])): ?>
                 <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token created successfully.', 'secure-guard'); ?></p></div>
@@ -112,6 +135,10 @@ final class Secure_Guard_Tokens_Page {
 
             <?php if (!empty($_GET['deleted'])): ?>
                 <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token deleted.', 'secure-guard'); ?></p></div>
+            <?php endif; ?>
+
+            <?php if (!empty($_GET['error'])): ?>
+                <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Token could not be created. Check JWT configuration and try again.', 'secure-guard'); ?></p></div>
             <?php endif; ?>
 
             <?php if ($created_token): ?>
@@ -138,7 +165,7 @@ final class Secure_Guard_Tokens_Page {
             <div class="card" style="max-width:1200px;padding:16px;margin-top:16px;">
             <h2><?php echo esc_html__('Existing Tokens', 'secure-guard'); ?></h2>
             <table class="widefat striped">
-                <thead><tr><th>ID</th><th><?php echo esc_html__('Name', 'secure-guard'); ?></th><th><?php echo esc_html__('Token', 'secure-guard'); ?></th><th><?php echo esc_html__('Scopes', 'secure-guard'); ?></th><th><?php echo esc_html__('Expires', 'secure-guard'); ?></th><th><?php echo esc_html__('Last used', 'secure-guard'); ?></th><th><?php echo esc_html__('Status', 'secure-guard'); ?></th><th><?php echo esc_html__('Action', 'secure-guard'); ?></th></tr></thead>
+                <thead><tr><th>ID</th><th><?php echo esc_html__('Name', 'secure-guard'); ?></th><th><?php echo esc_html__('Type', 'secure-guard'); ?></th><th><?php echo esc_html__('Token', 'secure-guard'); ?></th><th><?php echo esc_html__('Scopes', 'secure-guard'); ?></th><th><?php echo esc_html__('Expires', 'secure-guard'); ?></th><th><?php echo esc_html__('Last used', 'secure-guard'); ?></th><th><?php echo esc_html__('Status', 'secure-guard'); ?></th><th><?php echo esc_html__('Action', 'secure-guard'); ?></th></tr></thead>
                 <tbody>
                 <?php foreach ($rows as $row): ?>
                     <?php $row_id = (int) $row['id']; ?>
@@ -147,6 +174,7 @@ final class Secure_Guard_Tokens_Page {
                     <tr>
                         <td><?php echo esc_html((string) $row_id); ?></td>
                         <td><?php echo esc_html((string) $row['name']); ?></td>
+                        <td><?php echo esc_html(strtoupper((string) ($row['token_type'] ?? 'jwt'))); ?></td>
                         <td>
                             <?php if ($is_revealed): ?>
                                 <code style="word-break: break-all;"><?php echo esc_html($row_token); ?></code><br />

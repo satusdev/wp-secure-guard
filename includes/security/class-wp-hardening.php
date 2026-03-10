@@ -20,6 +20,14 @@ final class Secure_Guard_WP_Hardening {
 
         remove_action('wp_head', 'wp_generator');
         remove_action('admin_head', 'wp_generator');
+        remove_action('wp_head', 'feed_links', 2);
+        remove_action('wp_head', 'feed_links_extra', 3);
+        remove_action('wp_head', 'rsd_link');
+        remove_action('wp_head', 'wlwmanifest_link');
+        remove_action('wp_head', 'wp_shortlink_wp_head', 10);
+        remove_action('wp_head', 'rest_output_link_wp_head', 10);
+        remove_action('template_redirect', 'rest_output_link_header', 11);
+        remove_action('wp_head', 'wp_oembed_add_discovery_links');
     }
 
     public function hide_generator(string $generator): string {
@@ -45,7 +53,25 @@ final class Secure_Guard_WP_Hardening {
 
         $request_uri = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? ''));
         $path = strtolower((string) (parse_url($request_uri, PHP_URL_PATH) ?: ''));
-        if (!in_array($path, ['/readme.html', '/license.txt'], true)) {
+        $exact = [
+            '/readme.html',
+            '/wp/readme.html',
+            '/license.txt',
+            '/wp/license.txt',
+            '/wp-config.php',
+            '/wp-config-sample.php',
+            '/wp-content/debug.log',
+            '/app/debug.log',
+            '/phpinfo.php',
+            '/info.php',
+        ];
+
+        $is_probe_path = in_array($path, $exact, true);
+        if (!$is_probe_path && preg_match('#/(db|database|backup|dump)[^/]*\.(sql|zip|gz|tar|bz2)$#i', $path) === 1) {
+            $is_probe_path = true;
+        }
+
+        if (!$is_probe_path) {
             return;
         }
 

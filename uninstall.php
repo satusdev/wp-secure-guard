@@ -16,3 +16,4 @@ delete_transient('secure_guard_integrity_alert_count');
 $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}sg_tokens");
 $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}sg_logs");
 $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}sg_rate_limits");
+$wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}sg_jwt_denylist");

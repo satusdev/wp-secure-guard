@@ -28,6 +28,10 @@ final class Secure_Guard_Traffic_Firewall {
     public function handle_request(): void {
         $ip = $this->ip_whitelist->get_request_ip();
 
+        if ($this->is_public_wp_cron_request()) {
+            $this->deny_request('Public wp-cron blocked', 403, $ip);
+        }
+
         if ($this->is_sensitive_path_request()) {
             $this->deny_request('Sensitive path blocked', 403, $ip);
         }
@@ -124,12 +128,56 @@ final class Secure_Guard_Traffic_Firewall {
     private function is_sensitive_path_request(): bool {
         $request_uri = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? '/'));
         $path = strtolower((string) (parse_url($request_uri, PHP_URL_PATH) ?: ''));
-        $sensitive = ['wp-config.php', '/.env', '/.git', '/wp-content/debug.log'];
+        $sensitive = ['wp-config.php', '/.env', '/.git', '/wp-content/debug.log', '/app/debug.log'];
 
         foreach ($sensitive as $needle) {
             if (str_contains($path, $needle)) {
                 return true;
             }
+        }
+
+        if (!empty($this->settings['block_xmlrpc']) && in_array($path, ['/xmlrpc.php', '/wp/xmlrpc.php'], true)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function is_public_wp_cron_request(): bool {
+        if (empty($this->settings['block_public_wp_cron'])) {
+            return false;
+        }
+
+        $request_uri = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? '/'));
+        $path = strtolower((string) (parse_url($request_uri, PHP_URL_PATH) ?: ''));
+        if (!in_array($path, ['/wp-cron.php', '/wp/wp-cron.php'], true)) {
+            return false;
+        }
+
+        if ($this->is_internal_cron_request()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function is_internal_cron_request(): bool {
+        if (defined('WP_CLI') && WP_CLI) {
+            return true;
+        }
+
+        if (defined('DOING_CRON') && DOING_CRON) {
+            return true;
+        }
+
+        if (is_user_logged_in() && current_user_can('manage_options')) {
+            return true;
+        }
+
+        $remote_addr = sanitize_text_field((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+        $server_addr = sanitize_text_field((string) ($_SERVER['SERVER_ADDR'] ?? ''));
+        if ($remote_addr !== '' && ($remote_addr === $server_addr || in_array($remote_addr, ['127.0.0.1', '::1'], true))) {
+            return true;
         }
 
         return false;

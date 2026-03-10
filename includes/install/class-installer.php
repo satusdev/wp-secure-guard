@@ -14,11 +14,15 @@ final class Secure_Guard_Installer {
         $tokens_table = $wpdb->prefix . 'sg_tokens';
         $logs_table = $wpdb->prefix . 'sg_logs';
         $rate_limits_table = $wpdb->prefix . 'sg_rate_limits';
+        $jwt_denylist_table = $wpdb->prefix . 'sg_jwt_denylist';
 
         $sql_tokens = "CREATE TABLE {$tokens_table} (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             name VARCHAR(190) NOT NULL,
-            token_hash CHAR(64) NOT NULL,
+            token_type VARCHAR(16) NOT NULL DEFAULT 'jwt',
+            token_hash CHAR(64) NULL,
+            jti VARCHAR(64) NULL,
+            kid VARCHAR(64) NULL,
             scope TEXT NOT NULL,
             allowed_endpoints TEXT NULL,
             allowed_ips TEXT NULL,
@@ -28,7 +32,9 @@ final class Secure_Guard_Installer {
             created_at DATETIME NOT NULL,
             revoked_at DATETIME NULL,
             PRIMARY KEY (id),
-            UNIQUE KEY token_hash (token_hash)
+            UNIQUE KEY token_hash (token_hash),
+            KEY token_type (token_type),
+            UNIQUE KEY jti (jti)
         ) {$charset_collate};";
 
         $sql_logs = "CREATE TABLE {$logs_table} (
@@ -55,9 +61,22 @@ final class Secure_Guard_Installer {
             UNIQUE KEY subject (subject)
         ) {$charset_collate};";
 
+        $sql_jwt_denylist = "CREATE TABLE {$jwt_denylist_table} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            jti VARCHAR(64) NOT NULL,
+            revoked_until DATETIME NULL,
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY jti (jti),
+            KEY revoked_until (revoked_until)
+        ) {$charset_collate};";
+
         dbDelta($sql_tokens);
         dbDelta($sql_logs);
         dbDelta($sql_rate);
+        dbDelta($sql_jwt_denylist);
+
+        $wpdb->query("UPDATE {$tokens_table} SET revoked_at = UTC_TIMESTAMP() WHERE token_type = 'static' AND revoked_at IS NULL");
 
         if (!get_option(Secure_Guard_Config::OPTION_KEY)) {
             update_option(Secure_Guard_Config::OPTION_KEY, Secure_Guard_Config::defaults(), false);

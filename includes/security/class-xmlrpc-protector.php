@@ -24,4 +24,22 @@ final class Secure_Guard_XMLRPC_Protector {
 
         return false;
     }
+
+    public function block_direct_request(): void {
+        if (empty($this->settings['block_xmlrpc'])) {
+            return;
+        }
+
+        $request_uri = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? '/'));
+        $path = strtolower((string) (parse_url($request_uri, PHP_URL_PATH) ?: '/'));
+        if (!in_array($path, ['/xmlrpc.php', '/wp/xmlrpc.php'], true)) {
+            return;
+        }
+
+        $method = sanitize_text_field((string) ($_SERVER['REQUEST_METHOD'] ?? 'POST'));
+        $this->logs->log($path, $method, 'BLOCKED', 'XML-RPC request blocked', []);
+
+        status_header(403);
+        wp_die(esc_html__('Forbidden', 'secure-guard'), esc_html__('Forbidden', 'secure-guard'), ['response' => 403]);
+    }
 }

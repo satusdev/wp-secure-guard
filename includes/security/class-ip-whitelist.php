@@ -12,25 +12,28 @@ final class Secure_Guard_IP_Whitelist {
     }
 
     public function get_request_ip(): string {
+        $remote_addr = sanitize_text_field((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
         $candidates = [];
 
-        if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-            $candidates[] = (string) $_SERVER['HTTP_CF_CONNECTING_IP'];
+        if ($remote_addr !== '') {
+            $candidates[] = $remote_addr;
         }
 
-        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $forwarded = explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']);
-            foreach ($forwarded as $ip) {
-                $candidates[] = trim($ip);
+        if ($this->is_trusted_proxy($remote_addr)) {
+            if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+                $candidates[] = (string) $_SERVER['HTTP_CF_CONNECTING_IP'];
             }
-        }
 
-        if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
-            $candidates[] = (string) $_SERVER['HTTP_X_REAL_IP'];
-        }
+            if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+                $forwarded = explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']);
+                foreach ($forwarded as $ip) {
+                    $candidates[] = trim($ip);
+                }
+            }
 
-        if (!empty($_SERVER['REMOTE_ADDR'])) {
-            $candidates[] = (string) $_SERVER['REMOTE_ADDR'];
+            if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
+                $candidates[] = (string) $_SERVER['HTTP_X_REAL_IP'];
+            }
         }
 
         foreach ($candidates as $candidate) {
@@ -40,7 +43,7 @@ final class Secure_Guard_IP_Whitelist {
             }
         }
 
-        return '0.0.0.0';
+        return $this->normalize_fallback_ip($remote_addr);
     }
 
     public function is_allowed(string $ip, ?string $token_ips = null): bool {
@@ -82,6 +85,22 @@ final class Secure_Guard_IP_Whitelist {
             return false;
         }
 
+        if (!filter_var($ip, FILTER_VALIDATE_IP) || !filter_var($subnet, FILTER_VALIDATE_IP)) {
+            return false;
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) && filter_var($subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return $this->match_cidr_v4($ip, $subnet, (int) $bits);
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) && filter_var($subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            return $this->match_cidr_v6($ip, $subnet, (int) $bits);
+        }
+
+        return false;
+    }
+
+    private function match_cidr_v4(string $ip, string $subnet, int $bits): bool {
         $ip_long = ip2long($ip);
         $subnet_long = ip2long($subnet);
 
@@ -89,7 +108,6 @@ final class Secure_Guard_IP_Whitelist {
             return false;
         }
 
-        $bits = (int) $bits;
         if ($bits < 0 || $bits > 32) {
             return false;
         }
@@ -97,5 +115,55 @@ final class Secure_Guard_IP_Whitelist {
         $mask = $bits === 0 ? 0 : (-1 << (32 - $bits));
 
         return (($ip_long & $mask) === ($subnet_long & $mask));
+    }
+
+    private function match_cidr_v6(string $ip, string $subnet, int $bits): bool {
+        if ($bits < 0 || $bits > 128) {
+            return false;
+        }
+
+        $ip_bin = @inet_pton($ip);
+        $subnet_bin = @inet_pton($subnet);
+        if ($ip_bin === false || $subnet_bin === false) {
+            return false;
+        }
+
+        $full_bytes = intdiv($bits, 8);
+        $remaining_bits = $bits % 8;
+
+        if ($full_bytes > 0 && substr($ip_bin, 0, $full_bytes) !== substr($subnet_bin, 0, $full_bytes)) {
+            return false;
+        }
+
+        if ($remaining_bits === 0) {
+            return true;
+        }
+
+        $mask = (0xFF << (8 - $remaining_bits)) & 0xFF;
+        $ip_byte = ord($ip_bin[$full_bytes]);
+        $subnet_byte = ord($subnet_bin[$full_bytes]);
+
+        return (($ip_byte & $mask) === ($subnet_byte & $mask));
+    }
+
+    private function is_trusted_proxy(string $remote_addr): bool {
+        if ($remote_addr === '') {
+            return false;
+        }
+
+        $proxy_list = trim((string) ($this->settings['trusted_proxy_ips'] ?? ''));
+        if ($proxy_list === '') {
+            return false;
+        }
+
+        return $this->ip_in_list($remote_addr, $proxy_list);
+    }
+
+    private function normalize_fallback_ip(string $remote_addr): string {
+        if (filter_var($remote_addr, FILTER_VALIDATE_IP)) {
+            return $remote_addr;
+        }
+
+        return '0.0.0.0';
     }
 }

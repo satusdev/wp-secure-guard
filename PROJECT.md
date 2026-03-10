@@ -7,30 +7,35 @@
 
 ## Domain
 
-Secure Guard is a WordPress security plugin that enforces default-deny behavior
-for REST API and sensitive endpoints. Access is granted only when request
-conditions pass policy checks (token, IP, role, route, rate).
+Secure Guard is a WordPress security plugin that enforces hard deny behavior for
+all WordPress REST API routes and methods, plus sensitive endpoint and
+scanner-path protections.
 
 ### Core Capabilities
 
-- REST API lockdown by default.
-- Token-based API access using hashed storage.
+- REST API hard shutdown for all routes and methods (plugin-level 403 policy).
+- JWT token system retained for administrative lifecycle compatibility; REST
+  runtime currently does not grant JWT-based route access.
 - Token values are hidden by default in admin and can only be re-shown briefly
   for recently generated tokens in the same admin session.
+- Fallback users endpoint injection is disabled in tough mode.
 - Sensitive endpoint blocking (`users`, `settings`, `plugins`, XML-RPC, known
   exposure paths).
-- User enumeration protections.
+- User enumeration protections (author query, author archive path, and direct
+  users `rest_route` probing).
 - Login endpoint protection with escalating lockouts and automatic IP blocks.
 - Bot and spam rate limiting for general request traffic.
 - WordPress fingerprint reduction (generator/version/readme/license
   protections).
+- Public WP-Cron access blocking with internal execution allowlist.
 - Admin area protection for non-authenticated and suspicious requests.
 - File integrity monitoring for `wp-admin` and `wp-includes` via scheduled
   checksum scans.
 - Audit logging for deny/security events and security-sensitive admin events.
 - Security dashboard metrics for blocked IPs, failed logins, API requests, and
   active tokens.
-- Security header injection including HSTS on HTTPS.
+- Safe-strict modern header injection including `Referrer-Policy`,
+  `Permissions-Policy`, balanced CSP by default, optional HSTS, and COOP/CORP.
 
 ## Architecture
 
@@ -53,11 +58,11 @@ conditions pass policy checks (token, IP, role, route, rate).
 - `send_headers`
 
 4. Guard pipeline evaluates in this order:
-   - Bypass rules (admin user/capability where intended)
-   - Sensitive route policy
-   - Token validation and scope checks
-   - IP allowlist checks
-   - Rate limiting
+
+- REST hard deny policy for all REST requests/methods
+- Sensitive route and protected path policy for non-REST requests
+- Secondary guards (IP/rate/login/admin-area/file integrity)
+
 5. Denials are logged to audit storage with normalized metadata.
 6. REST auth logs reflect authentication/authorization decisions; unresolved
    routes still return core WordPress `rest_no_route` responses.
@@ -72,11 +77,18 @@ conditions pass policy checks (token, IP, role, route, rate).
 ### Security Modules
 
 - `class-rest-guard.php`: REST auth pipeline, token checks, endpoint
-  restrictions.
+  restrictions, no fallback users route.
+- `class-token-manager.php`: JWT validation/issuance logic.
 - `class-login-protection.php`: failed login tracking and lockout policy.
 - `class-traffic-firewall.php`: global request throttling and IP block checks.
+- `class-ip-whitelist.php`: trusted proxy-aware client IP resolution and
+  IPv4/IPv6 CIDR checks.
 - `class-admin-area-protector.php`: `/wp-admin` access guard.
-- `class-wp-hardening.php`: generator/version/readme/license hardening.
+- `class-wp-hardening.php`: generator/version/readme/license and exposure probe
+  hardening.
+- `class-wp-hardening.php`: also removes feed/discovery metadata links in tough
+  mode.
+- `class-security-maintenance.php`: scheduled log retention purge task.
 - `class-file-integrity-monitor.php`: checksum baseline + scheduled change
   detection.
 - `class-security-events.php`: audit hooks for role/plugin changes.
@@ -87,7 +99,10 @@ conditions pass policy checks (token, IP, role, route, rate).
 
 - `id` bigint primary key
 - `name` varchar(190)
-- `token_hash` char(64) unique
+- `token_type` varchar(16) (`static` or `jwt`)
+- `token_hash` char(64) unique nullable
+- `jti` varchar(64) unique nullable
+- `kid` varchar(64) nullable
 - `scope` text (comma-delimited scopes)
 - `allowed_endpoints` text (newline-separated patterns)
 - `allowed_ips` text (newline-separated IPv4/IPv6/CIDR)
@@ -96,6 +111,13 @@ conditions pass policy checks (token, IP, role, route, rate).
 - `last_used_at` datetime nullable
 - `created_at` datetime
 - `revoked_at` datetime nullable
+
+### Table: `{prefix}sg_jwt_denylist`
+
+- `id` bigint primary key
+- `jti` varchar(64) unique
+- `revoked_until` datetime nullable
+- `created_at` datetime
 
 ### Table: `{prefix}sg_logs`
 
@@ -122,9 +144,16 @@ conditions pass policy checks (token, IP, role, route, rate).
 - Capability required for admin actions: `manage_options`.
 - Defaults:
   - REST lock enabled.
+  - Sensitive routes blocked independently of REST lock state.
   - XML-RPC blocked.
+  - Direct `xmlrpc.php` requests return `403` when XML-RPC blocking is enabled.
+  - Bedrock XML-RPC path `/wp/xmlrpc.php` returns `403` when XML-RPC blocking is
+    enabled.
+  - Public `/wp-cron.php` and `/wp/wp-cron.php` blocked by default (internal
+    cron execution allowed).
   - User enumeration blocked.
-  - Sensitive routes blocked.
+  - JWT-only authentication with short TTL + denylist revocation support.
+  - Balanced CSP policy enabled by default.
   - Rate limit = 100 requests per minute.
 
 ## Coding Conventions
@@ -146,6 +175,11 @@ conditions pass policy checks (token, IP, role, route, rate).
   - `data/*.php`
   - `security/*.php`
 - `admin/*.php`
+- `infra/`
+  - `nginx/secure-guard-hardening.conf`
+  - `apache/secure-guard-hardening.conf`
+  - `cloudflare/waf-rules.md`
+  - `README.md`
 - `tasks/*.md`
 - `uninstall.php`
 
@@ -154,6 +188,35 @@ conditions pass policy checks (token, IP, role, route, rate).
 - PHP syntax validation over plugin files.
 - Runtime smoke checks via WordPress hooks.
 - If test harness exists, execute and require green before marking PASS.
+
+## Proxy and IP Trust
+
+- Forwarded headers are trusted only when `REMOTE_ADDR` is in configured
+  `trusted_proxy_ips`.
+- CIDR matching supports both IPv4 and IPv6 ranges.
+
+## Hardening Limits
+
+- Plugin-layer controls reduce active scanner findings but cannot fully prevent
+  passive fingerprinting of public static assets.
+- For stronger scanner resistance, pair plugin protections with server/CDN
+  controls such as sensitive static file deny rules, disabled directory listing,
+  and WAF policies.
+
+## Infrastructure Checklist
+
+- Deny direct access to probe targets at web server layer: `/wp/readme.html`,
+  `/wp/license.txt`, `/app/debug.log`, `/xmlrpc.php`, `/wp/xmlrpc.php`,
+  `/wp-cron.php`, `/wp/wp-cron.php`.
+- Apply the repository infrastructure pack in `infra/` for origin and edge
+  enforcement.
+- Disable directory listing for public roots and app/theme/plugin directories.
+- Restrict direct exposure of plugin/theme readme/changelog files where
+  operationally possible.
+- Enforce CDN/WAF rules for known WordPress scanner path probes and burst
+  requests.
+- Keep plugin/theme/core versions updated; passive fingerprinting cannot be
+  fully hidden in a public web application.
 
 ## MVP Feature Matrix
 

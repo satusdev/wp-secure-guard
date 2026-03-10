@@ -13,10 +13,21 @@ final class Secure_Guard_Security_Headers {
 
     public function send(): void {
         header('X-Frame-Options: SAMEORIGIN', true);
-        header('X-XSS-Protection: 1; mode=block', true);
         header('X-Content-Type-Options: nosniff', true);
+        header('Referrer-Policy: ' . sanitize_text_field((string) ($this->settings['referrer_policy'] ?? 'strict-origin-when-cross-origin')), true);
+        header('Permissions-Policy: ' . sanitize_text_field((string) ($this->settings['permissions_policy'] ?? 'camera=(), microphone=(), geolocation=()')), true);
 
-        $csp = sanitize_text_field((string) ($this->settings['csp'] ?? "default-src 'self'"));
+        if (!empty($this->settings['enable_coop'])) {
+            header('Cross-Origin-Opener-Policy: same-origin', true);
+        }
+
+        if (!empty($this->settings['enable_corp'])) {
+            header('Cross-Origin-Resource-Policy: same-site', true);
+        }
+
+        header('X-Permitted-Cross-Domain-Policies: none', true);
+
+        $csp = sanitize_text_field((string) ($this->settings['csp'] ?? ''));
         if ($csp !== '') {
             header('Content-Security-Policy: ' . $csp, true);
         }
