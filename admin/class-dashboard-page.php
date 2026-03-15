@@ -15,77 +15,201 @@ final class Secure_Guard_Dashboard_Page {
         $this->limits = $limits;
     }
 
+    public function register(): void {
+        add_action('admin_post_sg_refresh_dashboard_stats', [$this, 'handle_refresh_stats']);
+    }
+
+    public function handle_refresh_stats(): void {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Unauthorized', 'secure-guard'));
+        }
+        check_admin_referer('sg_refresh_dashboard_stats');
+        delete_transient('sg_dashboard_stats');
+        wp_safe_redirect(admin_url('admin.php?page=secure-guard&refreshed=1'));
+        exit;
+    }
+
     public function render(): void {
         if (!current_user_can('manage_options')) {
             wp_die(esc_html__('Unauthorized', 'secure-guard'));
         }
 
-        $blocked_ips = $this->limits->count_active_blocks('ip-block:%');
-        $failed_logins = $this->logs->count_by_reason('Failed login');
-        $api_requests = $this->logs->count_endpoint_prefix('/wp-json');
-        $active_tokens = $this->tokens->count_active();
-        $integrity_alerts = (int) get_transient('secure_guard_integrity_alert_count');
-        $tokens_url = admin_url('admin.php?page=secure-guard-tokens');
-        $logs_url = admin_url('admin.php?page=secure-guard-logs');
-        $settings_url = admin_url('admin.php?page=secure-guard-settings');
-        $rules_url = admin_url('admin.php?page=secure-guard-rules');
+        // Cache expensive COUNT queries for 5 minutes.
+        $stats = get_transient('sg_dashboard_stats');
+        if (!is_array($stats)) {
+            $stats = [
+                'blocked_ips'   => $this->limits->count_active_blocks('ip-block:%'),
+                'failed_logins' => $this->logs->count_by_reason('Failed login'),
+                'api_requests'  => $this->logs->count_endpoint_prefix('/wp-json'),
+                'active_tokens' => $this->tokens->count_active(),
+                '_cached_at'    => time(),
+            ];
+            set_transient('sg_dashboard_stats', $stats, 5 * MINUTE_IN_SECONDS);
+        }
+
+        $blocked_ips      = (int) ($stats['blocked_ips'] ?? 0);
+        $failed_logins    = (int) ($stats['failed_logins'] ?? 0);
+        $api_requests     = (int) ($stats['api_requests'] ?? 0);
+        $active_tokens    = (int) ($stats['active_tokens'] ?? 0);
+        $cached_at        = (int) ($stats['_cached_at'] ?? 0);
+        $integrity_alerts     = (int) get_transient('secure_guard_integrity_alert_count');
         $users_endpoint_ready = $this->users_collection_endpoint_available();
+        $tokens_url      = admin_url('admin.php?page=secure-guard-tokens');
+        $logs_url        = admin_url('admin.php?page=secure-guard-logs');
+        $settings_url    = admin_url('admin.php?page=secure-guard-settings');
+        $rules_url       = admin_url('admin.php?page=secure-guard-rules');
+        $blocked_ips_url = admin_url('admin.php?page=secure-guard-blocked');
+        $refresh_url     = wp_nonce_url(admin_url('admin-post.php?action=sg_refresh_dashboard_stats'), 'sg_refresh_dashboard_stats');
+
+        $cached_label = '';
+        if ($cached_at > 0) {
+            $age_min = (int) round((time() - $cached_at) / 60);
+            $cached_label = $age_min <= 0
+                ? esc_html__('cached just now', 'secure-guard')
+                : sprintf(esc_html__('cached %d min ago', 'secure-guard'), $age_min);
+        }
+
+        $last_scan = Secure_Guard_File_Integrity_Monitor::get_last_scan();
 
         echo '<div class="wrap secure-guard-ui">';
         echo '<h1>' . esc_html__('Security Dashboard', 'secure-guard') . '</h1>';
-        echo '<p class="description">' . esc_html__('Operational security metrics and quick verification shortcuts for Secure Guard.', 'secure-guard') . '</p>';
 
-        echo '<div class="card" style="max-width:1100px;padding:16px;">';
-        echo '<h2 style="margin-top:0;">' . esc_html__('Security Overview', 'secure-guard') . '</h2>';
-        echo '<table class="widefat striped" style="max-width:100%;margin-top:8px;">';
-        echo '<tbody>';
-        echo '<tr><th>' . esc_html__('Blocked IPs', 'secure-guard') . '</th><td>' . esc_html((string) $blocked_ips) . '</td></tr>';
-        echo '<tr><th>' . esc_html__('Failed Logins (logged)', 'secure-guard') . '</th><td>' . esc_html((string) $failed_logins) . '</td></tr>';
-        echo '<tr><th>' . esc_html__('API Requests (logged)', 'secure-guard') . '</th><td>' . esc_html((string) $api_requests) . '</td></tr>';
-        echo '<tr><th>' . esc_html__('Active Tokens', 'secure-guard') . '</th><td>' . esc_html((string) $active_tokens) . '</td></tr>';
-        echo '<tr><th>' . esc_html__('Integrity Alerts', 'secure-guard') . '</th><td>' . esc_html((string) $integrity_alerts) . '</td></tr>';
-        echo '<tr><th>' . esc_html__('Last Integrity Scan (UTC)', 'secure-guard') . '</th><td>' . esc_html(Secure_Guard_File_Integrity_Monitor::get_last_scan()) . '</td></tr>';
-        echo '</tbody>';
-        echo '</table>';
-
-        echo '<p style="margin-top:12px;">';
-        echo '<a class="button button-primary" href="' . esc_url($tokens_url) . '">' . esc_html__('Manage Tokens', 'secure-guard') . '</a> ';
-        echo '<a class="button" href="' . esc_url($logs_url) . '">' . esc_html__('View Logs', 'secure-guard') . '</a> ';
-        echo '<a class="button" href="' . esc_url($rules_url) . '">' . esc_html__('View Rules', 'secure-guard') . '</a> ';
-        echo '<a class="button" href="' . esc_url($settings_url) . '">' . esc_html__('Open Settings', 'secure-guard') . '</a>';
-        echo '</p>';
-        echo '</div>';
-
-        echo '<div class="card" style="max-width:1100px;padding:16px;margin-top:16px;">';
-        echo '<h2 style="margin-top:0;">' . esc_html__('Users Endpoint Status', 'secure-guard') . '</h2>';
-        if ($users_endpoint_ready) {
-            echo '<p><span class="sg-pill" style="color:#0f5132;">' . esc_html__('Ready', 'secure-guard') . '</span> ' . esc_html__('/wp/v2/users supports GET and should respond for authorized requests.', 'secure-guard') . '</p>';
-        } else {
-            echo '<p><span class="sg-pill" style="color:#842029;">' . esc_html__('Missing', 'secure-guard') . '</span> ' . esc_html__('/wp/v2/users GET route is not currently available.', 'secure-guard') . '</p>';
-            echo '<p class="description">' . esc_html__('If this persists, verify plugin deployment path and run a runtime reload.', 'secure-guard') . '</p>';
+        // ── top action row ──────────────────────────────────────────────
+        echo '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">';
+        echo '<a class="button button-primary" href="' . esc_url($tokens_url) . '">' . esc_html__('Manage Tokens', 'secure-guard') . '</a>';
+        echo '<a class="button" href="' . esc_url($logs_url) . '">' . esc_html__('View Logs', 'secure-guard') . '</a>';
+        echo '<a class="button" href="' . esc_url($blocked_ips_url) . '">' . esc_html__('Blocked IPs', 'secure-guard') . '</a>';
+        echo '<a class="button" href="' . esc_url($rules_url) . '">' . esc_html__('Rules', 'secure-guard') . '</a>';
+        echo '<a class="button" href="' . esc_url($settings_url) . '">' . esc_html__('Settings', 'secure-guard') . '</a>';
+        if ($cached_label !== '') {
+            echo '<span style="color:#646970;font-size:12px;margin-left:auto;">' . esc_html($cached_label) . ' &mdash; <a href="' . esc_url($refresh_url) . '">' . esc_html__('Refresh now', 'secure-guard') . '</a></span>';
+        }
+        if (!empty($_GET['refreshed'])) {
+            echo '<span style="color:#00a32a;font-size:12px;">' . esc_html__('Stats refreshed.', 'secure-guard') . '</span>';
         }
         echo '</div>';
 
-        echo '<div class="card" style="max-width:1100px;padding:16px;margin-top:16px;">';
-        echo '<h2 style="margin-top:0;">' . esc_html__('Quick Verification', 'secure-guard') . '</h2>';
-        echo '<p class="description">' . esc_html__('Use the examples below to validate API lock behavior. Replace TOKEN with a value from the Tokens page.', 'secure-guard') . '</p>';
-        echo '<pre style="white-space:pre-wrap;">' . esc_html("# Without token (expect 403 when REST lock is enabled)\ncurl https://your-site.example/wp-json/wp/v2/posts\n\n# With token (expect route response if endpoint exists)\ncurl -H \"Authorization: Bearer TOKEN\" https://your-site.example/wp-json/wp/v2/posts") . '</pre>';
+        // ── metric cards ────────────────────────────────────────────────
+        echo '<div class="sg-metric-grid">';
+
+        // Blocked IPs
+        $card_mod = $blocked_ips > 0 ? ' sg-metric-card--alert' : ' sg-metric-card--ok';
+        echo '<div class="sg-metric-card' . $card_mod . '">';
+        echo '<div class="sg-metric-card__header"><span class="dashicons dashicons-shield-alt"></span> ' . esc_html__('Blocked IPs', 'secure-guard') . '</div>';
+        echo '<div class="sg-metric-card__number">' . esc_html((string) $blocked_ips) . '</div>';
+        echo '<div class="sg-metric-card__sub"><a href="' . esc_url($blocked_ips_url) . '">' . esc_html__('Manage blocked IPs', 'secure-guard') . '</a></div>';
         echo '</div>';
+
+        // Failed Logins
+        $card_mod = $failed_logins > 0 ? ' sg-metric-card--alert' : ' sg-metric-card--ok';
+        echo '<div class="sg-metric-card' . $card_mod . '">';
+        echo '<div class="sg-metric-card__header"><span class="dashicons dashicons-warning"></span> ' . esc_html__('Failed Logins', 'secure-guard') . '</div>';
+        echo '<div class="sg-metric-card__number">' . esc_html((string) $failed_logins) . '</div>';
+        echo '<div class="sg-metric-card__sub"><a href="' . esc_url(add_query_arg(['result' => 'blocked'], $logs_url)) . '">' . esc_html__('View in logs', 'secure-guard') . '</a></div>';
         echo '</div>';
+
+        // API Requests
+        echo '<div class="sg-metric-card">';
+        echo '<div class="sg-metric-card__header"><span class="dashicons dashicons-rest-api"></span> ' . esc_html__('API Requests Logged', 'secure-guard') . '</div>';
+        echo '<div class="sg-metric-card__number">' . esc_html((string) $api_requests) . '</div>';
+        echo '<div class="sg-metric-card__sub"><a href="' . esc_url($logs_url) . '">' . esc_html__('Browse logs', 'secure-guard') . '</a></div>';
+        echo '</div>';
+
+        // Active Tokens
+        $card_mod = $active_tokens > 0 ? ' sg-metric-card--ok' : '';
+        echo '<div class="sg-metric-card' . $card_mod . '">';
+        echo '<div class="sg-metric-card__header"><span class="dashicons dashicons-admin-network"></span> ' . esc_html__('Active Tokens', 'secure-guard') . '</div>';
+        echo '<div class="sg-metric-card__number">' . esc_html((string) $active_tokens) . '</div>';
+        echo '<div class="sg-metric-card__sub"><a href="' . esc_url($tokens_url) . '">' . esc_html__('Manage tokens', 'secure-guard') . '</a></div>';
+        echo '</div>';
+
+        // Integrity Alerts
+        $card_mod = $integrity_alerts > 0 ? ' sg-metric-card--alert' : ' sg-metric-card--ok';
+        echo '<div class="sg-metric-card' . $card_mod . '">';
+        echo '<div class="sg-metric-card__header"><span class="dashicons dashicons-media-code"></span> ' . esc_html__('Integrity Alerts', 'secure-guard') . '</div>';
+        echo '<div class="sg-metric-card__number">' . esc_html((string) $integrity_alerts) . '</div>';
+        echo '<div class="sg-metric-card__sub">' . esc_html($integrity_alerts > 0 ? __('File changes detected', 'secure-guard') : __('No changes detected', 'secure-guard')) . '</div>';
+        echo '</div>';
+
+        // Last Integrity Scan
+        echo '<div class="sg-metric-card">';
+        echo '<div class="sg-metric-card__header"><span class="dashicons dashicons-clock"></span> ' . esc_html__('Last Integrity Scan', 'secure-guard') . '</div>';
+        echo '<div class="sg-metric-card__number" style="font-size:14px;font-weight:600;">' . esc_html($last_scan ?: '—') . '</div>';
+        echo '<div class="sg-metric-card__sub">' . esc_html__('UTC', 'secure-guard') . '</div>';
+        echo '</div>';
+
+        echo '</div>'; // .sg-metric-grid
+
+        if ($integrity_alerts > 0) {
+            echo '<div class="notice notice-warning inline" style="margin:12px 0 0;padding:8px 12px;">';
+            echo '<p><strong>' . esc_html__('File Integrity Alert', 'secure-guard') . ':</strong> ';
+            echo sprintf(esc_html__('%d file change(s) detected since last baseline.', 'secure-guard'), $integrity_alerts);
+            echo ' <form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="display:inline;margin-left:8px;">';
+            echo '<input type="hidden" name="action" value="sg_reset_integrity_baseline" />';
+            wp_nonce_field('sg_reset_integrity_baseline');
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            submit_button(
+                __('Reset Baseline Now', 'secure-guard'),
+                'small',
+                '',
+                false,
+                ['onclick' => 'return confirm(\'' . esc_js(__('This clears the stored baseline. The next scan will re-baseline from the current state. Continue?', 'secure-guard')) . '\')']
+            );
+            echo '</form></p>';
+            echo '</div>';
+        }
+
+        if (!empty($_GET['baseline_reset'])) {
+            echo '<div class="notice notice-success inline" style="margin:8px 0;padding:8px 12px;"><p>'
+                . esc_html__('Baseline cleared. The next scheduled scan will re-baseline from the current file state.', 'secure-guard')
+                . '</p></div>';
+        }
+
+        // ── Users endpoint status ────────────────────────────────────────
+        echo '<div class="sg-metric-grid" style="margin-top:20px;">';
+        echo '<div class="sg-metric-card' . ($users_endpoint_ready ? ' sg-metric-card--ok' : '') . '" style="grid-column:1/-1;">';
+        echo '<div class="sg-metric-card__header"><span class="dashicons dashicons-admin-users"></span> ' . esc_html__('Users Endpoint Status', 'secure-guard') . '</div>';
+        if ($users_endpoint_ready) {
+            echo '<div class="sg-metric-card__sub"><span class="sg-pill sg-pill--allowed">' . esc_html__('Ready', 'secure-guard') . '</span> ' . esc_html__('/wp/v2/users supports GET and should respond for authorized requests.', 'secure-guard') . '</div>';
+        } else {
+            echo '<div class="sg-metric-card__sub"><span class="sg-pill sg-pill--blocked">' . esc_html__('Missing', 'secure-guard') . '</span> ' . esc_html__('/wp/v2/users GET route is not currently available.', 'secure-guard') . '</div>';
+        }
+        echo '</div>';
+        echo '</div>'; // .sg-metric-grid (users endpoint)
+
+        // ── Quick Verification ──────────────────────────────────────────
+        echo '<details style="margin-top:20px;" ' . (!empty($_GET['show_curl']) ? 'open' : '') . '>';
+        echo '<summary style="cursor:pointer;font-size:14px;font-weight:600;color:#2271b1;padding:4px 0;">';
+        echo esc_html__('Quick Verification (curl examples)', 'secure-guard');
+        echo '</summary>';
+        echo '<div class="card" style="padding:16px;margin-top:8px;">';
+        echo '<p class="description">' . esc_html__('Replace SITE and TOKEN with actual values. Without a token expect 403; with a valid token expect route-specific responses.', 'secure-guard') . '</p>';
+        echo '<pre style="white-space:pre-wrap;">' . esc_html("# Without token (expect 403 when REST lock is enabled)\ncurl -i https://SITE/wp-json/wp/v2/posts\n\n# With token\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/posts\n\n# With token to sensitive route (requires full_api_access when enabled)\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/users") . '</pre>';
+        echo '</div></details>';
+
+        echo '</div>'; // .wrap
     }
 
     private function users_collection_endpoint_available(): bool {
+        $cached = get_transient('sg_users_endpoint_avail');
+        if ($cached !== false) {
+            return (bool) $cached;
+        }
+
         if (!function_exists('rest_get_server')) {
+            set_transient('sg_users_endpoint_avail', 0, 5 * MINUTE_IN_SECONDS);
             return false;
         }
 
         $server = rest_get_server();
         if (!$server instanceof WP_REST_Server) {
+            set_transient('sg_users_endpoint_avail', 0, 5 * MINUTE_IN_SECONDS);
             return false;
         }
 
-        $routes = $server->get_routes();
+        $routes     = $server->get_routes();
         $candidates = ['/wp/v2/users', '/wp/v2/users/(?P<id>[\\d]+)'];
+        $result     = false;
 
         foreach ($candidates as $candidate) {
             if (!isset($routes[$candidate]) || !is_array($routes[$candidate])) {
@@ -93,11 +217,13 @@ final class Secure_Guard_Dashboard_Page {
             }
 
             if ($this->route_supports_get($routes[$candidate])) {
-                return true;
+                $result = true;
+                break;
             }
         }
 
-        return false;
+        set_transient('sg_users_endpoint_avail', $result ? 1 : 0, 5 * MINUTE_IN_SECONDS);
+        return $result;
     }
 
     private function route_supports_get(array $route_config): bool {

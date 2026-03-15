@@ -20,7 +20,7 @@ final class Secure_Guard_Installer {
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             name VARCHAR(190) NOT NULL,
             token_type VARCHAR(16) NOT NULL DEFAULT 'jwt',
-            token_hash CHAR(64) NULL,
+            token_hash TEXT NULL,
             jti VARCHAR(64) NULL,
             kid VARCHAR(64) NULL,
             scope TEXT NOT NULL,
@@ -32,9 +32,10 @@ final class Secure_Guard_Installer {
             created_at DATETIME NOT NULL,
             revoked_at DATETIME NULL,
             PRIMARY KEY (id),
-            UNIQUE KEY token_hash (token_hash),
             KEY token_type (token_type),
-            UNIQUE KEY jti (jti)
+            UNIQUE KEY jti (jti),
+            KEY revoked_at (revoked_at),
+            KEY expires_at (expires_at)
         ) {$charset_collate};";
 
         $sql_logs = "CREATE TABLE {$logs_table} (
@@ -48,7 +49,9 @@ final class Secure_Guard_Installer {
             created_at DATETIME NOT NULL,
             PRIMARY KEY (id),
             KEY endpoint (endpoint),
-            KEY created_at (created_at)
+            KEY created_at (created_at),
+            KEY result (result),
+            KEY reason (reason)
         ) {$charset_collate};";
 
         $sql_rate = "CREATE TABLE {$rate_limits_table} (
@@ -58,7 +61,8 @@ final class Secure_Guard_Installer {
             hit_count INT UNSIGNED NOT NULL,
             blocked_until DATETIME NULL,
             PRIMARY KEY (id),
-            UNIQUE KEY subject (subject)
+            UNIQUE KEY subject (subject),
+            KEY blocked_until (blocked_until)
         ) {$charset_collate};";
 
         $sql_jwt_denylist = "CREATE TABLE {$jwt_denylist_table} (
@@ -75,6 +79,17 @@ final class Secure_Guard_Installer {
         dbDelta($sql_logs);
         dbDelta($sql_rate);
         dbDelta($sql_jwt_denylist);
+
+        // Add ip index to sg_logs for IP-based log filtering (added in v1.1.0).
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.SchemaChange
+        $wpdb->query("ALTER TABLE {$logs_table} ADD INDEX ip (ip)"); // suppress error if already exists
+        // phpcs:enable
+
+        // Migrate existing installs: widen token_hash from CHAR(64) to TEXT and drop the old UNIQUE index.
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.SchemaChange
+        $wpdb->query("ALTER TABLE {$tokens_table} DROP INDEX token_hash"); // suppress error if already gone
+        $wpdb->query("ALTER TABLE {$tokens_table} MODIFY COLUMN token_hash TEXT NULL");
+        // phpcs:enable
 
         $wpdb->query("UPDATE {$tokens_table} SET revoked_at = UTC_TIMESTAMP() WHERE token_type = 'static' AND revoked_at IS NULL");
 

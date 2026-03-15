@@ -19,34 +19,41 @@ final class Secure_Guard_Rate_Limit {
     }
 
     public function allow_with_policy(string $subject, int $limit, int $window_seconds, int $block_seconds): bool {
-        $now = time();
-        $window_start = gmdate('Y-m-d H:i:s', $now - max(1, $window_seconds));
-        $current = $this->repository->get($subject);
+        // Transient-backed sliding window — zero DB queries per check when using a
+        // persistent object cache (Redis/Memcached); one option-table read otherwise,
+        // still far cheaper than the previous SELECT + UPDATE pair per request.
+        $key  = 'sg_rl_' . substr(md5($subject), 0, 20);
+        $now  = time();
+        $ttl  = max($window_seconds, $block_seconds) + 60;
 
-        if (!$current) {
-            $this->repository->upsert($subject, gmdate('Y-m-d H:i:s', $now), 1, null);
+        $current = get_transient($key);
+
+        if (!is_array($current)) {
+            set_transient($key, ['s' => $now, 'h' => 1, 'b' => 0], $ttl);
             return true;
         }
 
-        if (!empty($current['blocked_until']) && strtotime((string) $current['blocked_until']) > $now) {
+        $blocked_until = (int) ($current['b'] ?? 0);
+        if ($blocked_until > $now) {
             return false;
         }
 
-        $started_at = strtotime((string) $current['window_started_at']) ?: 0;
-        $hit_count = (int) $current['hit_count'];
+        $started_at = (int) ($current['s'] ?? 0);
+        $hit_count  = (int) ($current['h'] ?? 0);
 
-        if ($started_at < strtotime($window_start)) {
-            $this->repository->upsert($subject, gmdate('Y-m-d H:i:s', $now), 1, null);
+        if ($started_at < ($now - $window_seconds)) {
+            // Window expired — start a fresh window.
+            set_transient($key, ['s' => $now, 'h' => 1, 'b' => 0], $ttl);
             return true;
         }
 
         $hit_count++;
         if ($hit_count > $limit) {
-            $this->repository->upsert($subject, (string) $current['window_started_at'], $hit_count, gmdate('Y-m-d H:i:s', $now + max(1, $block_seconds)));
+            set_transient($key, ['s' => $started_at, 'h' => $hit_count, 'b' => $now + max(1, $block_seconds)], $block_seconds + 60);
             return false;
         }
 
-        $this->repository->upsert($subject, (string) $current['window_started_at'], $hit_count, null);
+        set_transient($key, ['s' => $started_at, 'h' => $hit_count, 'b' => 0], $ttl);
         return true;
     }
 }

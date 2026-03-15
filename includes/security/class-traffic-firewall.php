@@ -10,19 +10,22 @@ final class Secure_Guard_Traffic_Firewall {
     private Secure_Guard_Rate_Limit $rate_limit;
     private Secure_Guard_Rate_Limit_Repository $limits;
     private Secure_Guard_IP_Whitelist $ip_whitelist;
+    private ?Secure_Guard_Alert_Manager $alert_manager;
 
     public function __construct(
         array $settings,
         Secure_Guard_Log_Repository $logs,
         Secure_Guard_Rate_Limit $rate_limit,
         Secure_Guard_Rate_Limit_Repository $limits,
-        Secure_Guard_IP_Whitelist $ip_whitelist
+        Secure_Guard_IP_Whitelist $ip_whitelist,
+        ?Secure_Guard_Alert_Manager $alert_manager = null
     ) {
         $this->settings = $settings;
         $this->logs = $logs;
         $this->rate_limit = $rate_limit;
         $this->limits = $limits;
         $this->ip_whitelist = $ip_whitelist;
+        $this->alert_manager = $alert_manager;
     }
 
     public function handle_request(): void {
@@ -57,7 +60,7 @@ final class Secure_Guard_Traffic_Firewall {
 
         $subject = 'traffic:' . $ip;
         if (!$this->rate_limit->allow_with_policy($subject, $limit, 60, $block_seconds)) {
-            $this->apply_global_block($ip, $block_seconds);
+            $this->apply_global_block($ip, $block_seconds, 'Bot rate limit exceeded');
             $this->deny_request('Bot rate limit exceeded', 429, $ip);
         }
     }
@@ -79,7 +82,7 @@ final class Secure_Guard_Traffic_Firewall {
         set_transient($scan_key, $count, 10 * MINUTE_IN_SECONDS);
 
         if ($count >= $threshold) {
-            $this->apply_global_block($ip, DAY_IN_SECONDS);
+            $this->apply_global_block($ip, DAY_IN_SECONDS, 'Too many 404 scans');
             $endpoint = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? '/'));
             $method = sanitize_text_field((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
             $this->logs->log($endpoint, $method, 'BLOCKED', 'Too many 404 scans', ['ip' => $ip, 'count' => $count]);
@@ -91,7 +94,9 @@ final class Secure_Guard_Traffic_Firewall {
             return true;
         }
 
-        if (is_user_logged_in() && current_user_can('manage_options')) {
+        // All authenticated users bypass the bot rate limiter — editors, authors, and
+        // contributors using page builders or the media library must never be throttled.
+        if (is_user_logged_in()) {
             return true;
         }
 
@@ -99,21 +104,44 @@ final class Secure_Guard_Traffic_Firewall {
             return true;
         }
 
+        // Skip for AJAX and REST requests to avoid rate-limiting internal WP operations.
+        if (defined('DOING_AJAX') && DOING_AJAX) {
+            return true;
+        }
+
+        if (defined('REST_REQUEST') && REST_REQUEST) {
+            return true;
+        }
+
         return false;
     }
 
     private function is_globally_blocked(string $ip): bool {
-        $row = $this->limits->get('ip-block:' . $ip);
-        if (!$row || empty($row['blocked_until'])) {
-            return false;
+        // Use a short-lived transient to avoid a DB SELECT on every request.
+        $cache_key = 'sg_iblk_' . substr(md5('ip-block:' . $ip), 0, 16);
+        $cached = get_transient($cache_key);
+        if ($cached !== false) {
+            return (bool) $cached;
         }
 
-        return (strtotime((string) $row['blocked_until']) ?: 0) > time();
+        $row = $this->limits->get('ip-block:' . $ip);
+        $blocked = $row && !empty($row['blocked_until']) && (strtotime((string) $row['blocked_until']) ?: 0) > time();
+        set_transient($cache_key, $blocked ? 1 : 0, 60);
+
+        return $blocked;
     }
 
-    private function apply_global_block(string $ip, int $seconds): void {
+    private function apply_global_block(string $ip, int $seconds, string $reason = 'Firewall block'): void {
         $now = time();
-        $this->limits->upsert('ip-block:' . $ip, gmdate('Y-m-d H:i:s', $now), 1, gmdate('Y-m-d H:i:s', $now + $seconds));
+        $expires_at = gmdate('Y-m-d H:i:s', $now + $seconds);
+        $this->limits->upsert('ip-block:' . $ip, gmdate('Y-m-d H:i:s', $now), 1, $expires_at);
+        // Prime the transient immediately so subsequent requests are denied without a DB read.
+        $cache_key = 'sg_iblk_' . substr(md5('ip-block:' . $ip), 0, 16);
+        set_transient($cache_key, 1, $seconds);
+
+        if ($this->alert_manager !== null) {
+            $this->alert_manager->notify_ip_blocked($ip, $reason, $expires_at);
+        }
     }
 
     private function deny_request(string $reason, int $status, string $ip): void {

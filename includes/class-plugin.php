@@ -34,6 +34,7 @@ final class Secure_Guard_Plugin {
         $ip_whitelist = new Secure_Guard_IP_Whitelist($settings);
         $rate_limit = new Secure_Guard_Rate_Limit($this->limits, $settings);
         $endpoint_blocker = new Secure_Guard_Endpoint_Blocker($settings);
+        $alert_manager = new Secure_Guard_Alert_Manager($settings);
 
         $this->rest_guard = new Secure_Guard_REST_Guard(
             $settings,
@@ -46,12 +47,12 @@ final class Secure_Guard_Plugin {
         $this->enumeration_blocker = new Secure_Guard_User_Enumeration_Blocker($settings, $this->logs);
         $this->xmlrpc_protector = new Secure_Guard_XMLRPC_Protector($settings, $this->logs);
         $this->security_headers = new Secure_Guard_Security_Headers($settings);
-        $this->login_protection = new Secure_Guard_Login_Protection($settings, $this->logs, $this->limits, $ip_whitelist);
-        $this->traffic_firewall = new Secure_Guard_Traffic_Firewall($settings, $this->logs, $rate_limit, $this->limits, $ip_whitelist);
+        $this->login_protection = new Secure_Guard_Login_Protection($settings, $this->logs, $this->limits, $ip_whitelist, $alert_manager);
+        $this->traffic_firewall = new Secure_Guard_Traffic_Firewall($settings, $this->logs, $rate_limit, $this->limits, $ip_whitelist, $alert_manager);
         $this->wp_hardening = new Secure_Guard_WP_Hardening($settings, $this->logs);
         $this->admin_area_protector = new Secure_Guard_Admin_Area_Protector($settings, $this->logs, $this->limits, $ip_whitelist);
-        $this->file_integrity_monitor = new Secure_Guard_File_Integrity_Monitor($settings, $this->logs);
-        $this->security_maintenance = new Secure_Guard_Security_Maintenance($settings, $this->logs);
+        $this->file_integrity_monitor = new Secure_Guard_File_Integrity_Monitor($settings, $this->logs, $alert_manager);
+        $this->security_maintenance = new Secure_Guard_Security_Maintenance($settings, $this->logs, $this->tokens, $alert_manager);
         $this->security_events = new Secure_Guard_Security_Events($this->logs);
 
         $this->admin_menu = new Secure_Guard_Admin_Menu(
@@ -59,7 +60,8 @@ final class Secure_Guard_Plugin {
             new Secure_Guard_Settings_Page(),
             new Secure_Guard_Tokens_Page($this->tokens, $token_manager, $settings),
             new Secure_Guard_Rules_Page(),
-            new Secure_Guard_Logs_Page($this->logs)
+            new Secure_Guard_Logs_Page($this->logs),
+            new Secure_Guard_Blocked_IPs_Page($this->limits)
         );
     }
 
@@ -86,9 +88,11 @@ final class Secure_Guard_Plugin {
         $this->loader->filter('style_loader_src', [$this->wp_hardening, 'strip_version_query_arg'], 99, 1);
         $this->loader->filter('the_generator', [$this->wp_hardening, 'hide_generator'], 99, 1);
         $this->loader->action('secure_guard_integrity_scan', [$this->file_integrity_monitor, 'perform_scan'], 10, 0);
+        $this->loader->action('admin_post_sg_reset_integrity_baseline', [$this->file_integrity_monitor, 'handle_reset_baseline'], 10, 0);
         $this->loader->action('secure_guard_log_retention_purge', [$this->security_maintenance, 'purge_logs'], 10, 0);
+        $this->loader->action('secure_guard_token_expiry_check',  [$this->security_maintenance, 'check_token_expiry'], 10, 0);
         $this->loader->action('admin_menu', [$this->admin_menu, 'register_menu'], 10, 0);
         $this->loader->action('admin_init', [$this->admin_menu, 'register_admin_actions'], 10, 0);
-        $this->loader->action('admin_head', [$this->admin_menu, 'render_admin_styles'], 10, 0);
+        $this->loader->action('admin_enqueue_scripts', [$this->admin_menu, 'enqueue_admin_assets'], 10, 1);
     }
 }

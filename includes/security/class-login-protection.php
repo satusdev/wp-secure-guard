@@ -9,12 +9,20 @@ final class Secure_Guard_Login_Protection {
     private Secure_Guard_Log_Repository $logs;
     private Secure_Guard_Rate_Limit_Repository $limits;
     private Secure_Guard_IP_Whitelist $ip_whitelist;
+    private ?Secure_Guard_Alert_Manager $alert_manager;
 
-    public function __construct(array $settings, Secure_Guard_Log_Repository $logs, Secure_Guard_Rate_Limit_Repository $limits, Secure_Guard_IP_Whitelist $ip_whitelist) {
+    public function __construct(
+        array $settings,
+        Secure_Guard_Log_Repository $logs,
+        Secure_Guard_Rate_Limit_Repository $limits,
+        Secure_Guard_IP_Whitelist $ip_whitelist,
+        ?Secure_Guard_Alert_Manager $alert_manager = null
+    ) {
         $this->settings = $settings;
         $this->logs = $logs;
         $this->limits = $limits;
         $this->ip_whitelist = $ip_whitelist;
+        $this->alert_manager = $alert_manager;
     }
 
     public function guard_login_request(): void {
@@ -61,8 +69,12 @@ final class Secure_Guard_Login_Protection {
         $hard_threshold = (int) ($this->settings['login_hard_block_threshold'] ?? 20);
 
         if ($fails >= $hard_threshold) {
+            $block_until = gmdate('Y-m-d H:i:s', time() + DAY_IN_SECONDS);
             $this->apply_block('login-block:' . $ip, DAY_IN_SECONDS);
             $this->apply_block('ip-block:' . $ip, DAY_IN_SECONDS);
+            if ($this->alert_manager !== null) {
+                $this->alert_manager->notify_ip_blocked($ip, 'Too many failed logins (hard block)', $block_until);
+            }
             return;
         }
 

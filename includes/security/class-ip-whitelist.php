@@ -57,6 +57,15 @@ final class Secure_Guard_IP_Whitelist {
         return $this->ip_in_list($ip, $global_list) || $this->ip_in_list($ip, $token_list);
     }
 
+    /**
+     * Public facade for checking whether $ip matches any entry in a newline-delimited
+     * list string (exact IP or CIDR range). Used by modules that maintain their own
+     * allow-lists separate from the global whitelist setting.
+     */
+    public function check_list(string $ip, string $raw_list): bool {
+        return $this->ip_in_list($ip, $raw_list);
+    }
+
     private function ip_in_list(string $ip, string $raw_list): bool {
         if ($raw_list === '') {
             return false;

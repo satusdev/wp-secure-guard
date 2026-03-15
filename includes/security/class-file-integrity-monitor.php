@@ -10,10 +10,16 @@ final class Secure_Guard_File_Integrity_Monitor {
 
     private array $settings;
     private Secure_Guard_Log_Repository $logs;
+    private ?Secure_Guard_Alert_Manager $alert_manager;
 
-    public function __construct(array $settings, Secure_Guard_Log_Repository $logs) {
+    public function __construct(
+        array $settings,
+        Secure_Guard_Log_Repository $logs,
+        ?Secure_Guard_Alert_Manager $alert_manager = null
+    ) {
         $this->settings = $settings;
-        $this->logs = $logs;
+        $this->logs     = $logs;
+        $this->alert_manager = $alert_manager;
     }
 
     public function register_schedule(): void {
@@ -46,6 +52,10 @@ final class Secure_Guard_File_Integrity_Monitor {
             }
 
             set_transient('secure_guard_integrity_alert_count', count($changes), DAY_IN_SECONDS);
+
+            if ($this->alert_manager !== null) {
+                $this->alert_manager->notify_integrity_alert(count($changes));
+            }
         }
 
         update_option(self::BASELINE_OPTION, $current, false);
@@ -54,6 +64,24 @@ final class Secure_Guard_File_Integrity_Monitor {
 
     public static function get_last_scan(): string {
         return (string) get_option(self::LAST_SCAN_OPTION, 'Never');
+    }
+
+    /**
+     * Handles the admin_post_sg_reset_integrity_baseline action.
+     * Deletes the stored baseline so the next scheduled scan re-baselines from the current
+     * file state, dismissing all pending integrity alerts.
+     */
+    public function handle_reset_baseline(): void {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Unauthorized', 'secure-guard'));
+        }
+        check_admin_referer('sg_reset_integrity_baseline');
+
+        delete_option(self::BASELINE_OPTION);
+        delete_transient('secure_guard_integrity_alert_count');
+
+        wp_safe_redirect(admin_url('admin.php?page=secure-guard&baseline_reset=1'));
+        exit;
     }
 
     private function build_file_hash_map(): array {

@@ -5,20 +5,37 @@ if (!defined('ABSPATH')) {
 }
 
 final class Secure_Guard_Settings_Page {
+    /** @var array<string,string> */
+    private const TABS = [
+        'rest-jwt'      => 'REST & JWT',
+        'login'         => 'Login Protection',
+        'rate-limiting' => 'Rate Limiting',
+        'headers'       => 'Security Headers',
+        'hardening'     => 'Hardening',
+        'alerts'        => 'Alerts',
+    ];
+
     public function register(): void {
         register_setting(
             'secure_guard_settings_group',
             Secure_Guard_Config::OPTION_KEY,
             [
-                'type' => 'array',
+                'type'              => 'array',
                 'sanitize_callback' => [$this, 'sanitize'],
-                'default' => Secure_Guard_Config::defaults(),
+                'default'           => Secure_Guard_Config::defaults(),
             ]
         );
     }
 
     public function sanitize($input): array {
         $input = is_array($input) ? $input : [];
+        // Merge currently stored settings so keys absent from the current tab’s form
+        // (fields rendered on other tabs) keep their stored value rather than being
+        // silently reset to 0 / empty. This prevents data-loss when saving a single tab.
+        $stored = get_option(Secure_Guard_Config::OPTION_KEY, []);
+        if (is_array($stored) && $stored !== []) {
+            $input = array_merge($stored, $input);
+        }
         return Secure_Guard_Config::save_settings($input);
     }
 
@@ -27,66 +44,313 @@ final class Secure_Guard_Settings_Page {
             wp_die(esc_html__('Unauthorized', 'secure-guard'));
         }
 
-        $settings = Secure_Guard_Config::get_settings();
-        $roles = wp_roles()->roles;
+        $settings   = Secure_Guard_Config::get_settings();
+        $roles      = wp_roles()->roles;
+        $active_tab = isset($_GET['tab']) ? sanitize_key((string) $_GET['tab']) : 'rest-jwt';
+        if (!array_key_exists($active_tab, self::TABS)) {
+            $active_tab = 'rest-jwt';
+        }
+
+        $page_base = admin_url('admin.php?page=secure-guard-settings');
         ?>
         <div class="wrap secure-guard-ui">
-            <h1><?php echo esc_html__('Settings', 'secure-guard'); ?></h1>
-            <p class="description"><?php echo esc_html__('Configure hardening defaults. REST API is JWT-only: requests require valid bearer tokens and policy checks.', 'secure-guard'); ?></p>
-            <div class="notice notice-info"><p><?php echo esc_html__('Tip: After saving settings, validate behavior from API Rules and Logs pages.', 'secure-guard'); ?></p></div>
+            <h1><?php esc_html_e('Settings', 'secure-guard'); ?></h1>
 
-            <div class="card" style="max-width:1200px;padding:16px;">
-                <h2 style="margin-top:0;"><?php echo esc_html__('Security Configuration', 'secure-guard'); ?></h2>
-            <form method="post" action="options.php">
-                <?php settings_fields('secure_guard_settings_group'); ?>
-                <table class="form-table" role="presentation">
-                    <tr><th><?php echo esc_html__('REST Lock', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[rest_lock_enabled]" value="1" <?php checked(!empty($settings['rest_lock_enabled'])); ?> /> <?php echo esc_html__('JWT-only REST access mode is active. Cookie/role bypass is disabled.', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('Block Sensitive Endpoints', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[block_sensitive_endpoints]" value="1" <?php checked(!empty($settings['block_sensitive_endpoints'])); ?> /> <?php echo esc_html__('When enabled, sensitive routes require full_api_access scope even with valid JWT.', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('Block User Enumeration', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[block_user_enumeration]" value="1" <?php checked(!empty($settings['block_user_enumeration'])); ?> /> <?php echo esc_html__('Block author query, author archive, and REST route user enumeration probes', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('Block XML-RPC', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[block_xmlrpc]" value="1" <?php checked(!empty($settings['block_xmlrpc'])); ?> /> <?php echo esc_html__('Disable XML-RPC and return hard 403 for direct XML-RPC paths (`/xmlrpc.php` and `/wp/xmlrpc.php`)', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('Login Protection', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[login_protection_enabled]" value="1" <?php checked(!empty($settings['login_protection_enabled'])); ?> /> <?php echo esc_html__('Enable login lockout controls', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('Login thresholds', 'secure-guard'); ?></th><td>
-                        <label><?php echo esc_html__('Short block threshold', 'secure-guard'); ?> <input type="number" min="1" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[login_short_threshold]" value="<?php echo esc_attr((string) $settings['login_short_threshold']); ?>" /></label><br />
-                        <label><?php echo esc_html__('Medium block threshold', 'secure-guard'); ?> <input type="number" min="1" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[login_medium_threshold]" value="<?php echo esc_attr((string) $settings['login_medium_threshold']); ?>" /></label><br />
-                        <label><?php echo esc_html__('Hard block threshold', 'secure-guard'); ?> <input type="number" min="1" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[login_hard_block_threshold]" value="<?php echo esc_attr((string) $settings['login_hard_block_threshold']); ?>" /></label>
-                    </td></tr>
-                    <tr><th><?php echo esc_html__('Bot Rate Limiting', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[bot_rate_limit_enabled]" value="1" <?php checked(!empty($settings['bot_rate_limit_enabled'])); ?> /> <?php echo esc_html__('Enable per-IP bot rate limiting', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('Bot limits', 'secure-guard'); ?></th><td>
-                        <label><?php echo esc_html__('Requests per minute', 'secure-guard'); ?> <input type="number" min="1" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[bot_rate_limit_per_minute]" value="<?php echo esc_attr((string) $settings['bot_rate_limit_per_minute']); ?>" /></label><br />
-                        <label><?php echo esc_html__('Block minutes when exceeded', 'secure-guard'); ?> <input type="number" min="1" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[bot_block_minutes]" value="<?php echo esc_attr((string) $settings['bot_block_minutes']); ?>" /></label><br />
-                        <label><?php echo esc_html__('404 scan threshold (10 min window)', 'secure-guard'); ?> <input type="number" min="1" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[scan_404_threshold]" value="<?php echo esc_attr((string) $settings['scan_404_threshold']); ?>" /></label>
-                    </td></tr>
-                    <tr><th><?php echo esc_html__('Block Public WP-Cron', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[block_public_wp_cron]" value="1" <?php checked(!empty($settings['block_public_wp_cron'])); ?> /> <?php echo esc_html__('Block external access to wp-cron.php and allow only internal/system cron execution', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('Global IP Whitelist', 'secure-guard'); ?></th><td><textarea rows="6" cols="60" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[ip_whitelist]"><?php echo esc_textarea((string) $settings['ip_whitelist']); ?></textarea><p class="description"><?php echo esc_html__('One IP/CIDR per line.', 'secure-guard'); ?></p></td></tr>
-                    <tr><th><?php echo esc_html__('Admin Area Protection', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[admin_area_protection_enabled]" value="1" <?php checked(!empty($settings['admin_area_protection_enabled'])); ?> /> <?php echo esc_html__('Protect /wp-admin requests', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('Admin IP whitelist', 'secure-guard'); ?></th><td><textarea rows="4" cols="60" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[admin_ip_whitelist]"><?php echo esc_textarea((string) $settings['admin_ip_whitelist']); ?></textarea><p class="description"><?php echo esc_html__('Optional. If set, only these IPs can access admin.', 'secure-guard'); ?></p></td></tr>
-                    <tr><th><?php echo esc_html__('Trusted Proxy IPs', 'secure-guard'); ?></th><td><textarea rows="4" cols="60" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[trusted_proxy_ips]"><?php echo esc_textarea((string) ($settings['trusted_proxy_ips'] ?? '')); ?></textarea><p class="description"><?php echo esc_html__('Optional. One IPv4/IPv6/CIDR per line. Forwarded headers are trusted only when REMOTE_ADDR matches this list.', 'secure-guard'); ?></p></td></tr>
-                    <tr><th><?php echo esc_html__('Hide WordPress Info', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[hide_wp_info]" value="1" <?php checked(!empty($settings['hide_wp_info'])); ?> /> <?php echo esc_html__('Hide generator/meta/version and block readme/license probes', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('File Integrity Monitoring', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[file_integrity_enabled]" value="1" <?php checked(!empty($settings['file_integrity_enabled'])); ?> /> <?php echo esc_html__('Enable hourly scan of wp-admin/wp-includes', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('Rate limit per minute', 'secure-guard'); ?></th><td><input type="number" min="1" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[rate_limit_per_minute]" value="<?php echo esc_attr((string) $settings['rate_limit_per_minute']); ?>" /></td></tr>
-                    <tr><th><?php echo esc_html__('Allowed User Roles', 'secure-guard'); ?></th><td>
-                        <?php foreach ($roles as $role_key => $role): ?>
-                            <label style="display:block"><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[allowed_roles][]" value="<?php echo esc_attr($role_key); ?>" <?php checked(in_array($role_key, $settings['allowed_roles'], true)); ?> /> <?php echo esc_html($role['name']); ?></label>
-                        <?php endforeach; ?>
-                    </td></tr>
-                    <tr><th><?php echo esc_html__('JWT Secret', 'secure-guard'); ?></th><td><input type="text" class="regular-text" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[jwt_secret]" value="<?php echo esc_attr((string) $settings['jwt_secret']); ?>" /><p class="description"><?php echo esc_html__('Optional. If empty, plugin uses SECURE_GUARD_JWT_SECRET constant, then AUTH_KEY fallback.', 'secure-guard'); ?></p></td></tr>
-                    <tr><th><?php echo esc_html__('JWT Issuer', 'secure-guard'); ?></th><td><input type="url" class="regular-text" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[jwt_issuer]" value="<?php echo esc_attr((string) $settings['jwt_issuer']); ?>" /></td></tr>
-                    <tr><th><?php echo esc_html__('JWT Audience', 'secure-guard'); ?></th><td><input type="url" class="regular-text" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[jwt_audience]" value="<?php echo esc_attr((string) $settings['jwt_audience']); ?>" /></td></tr>
-                    <tr><th><?php echo esc_html__('JWT TTL (minutes)', 'secure-guard'); ?></th><td><input type="number" min="1" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[jwt_ttl_minutes]" value="<?php echo esc_attr((string) $settings['jwt_ttl_minutes']); ?>" /></td></tr>
-                    <tr><th><?php echo esc_html__('JWT Clock Skew (seconds)', 'secure-guard'); ?></th><td><input type="number" min="0" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[jwt_clock_skew_seconds]" value="<?php echo esc_attr((string) $settings['jwt_clock_skew_seconds']); ?>" /></td></tr>
-                    <tr><th><?php echo esc_html__('Content Security Policy', 'secure-guard'); ?></th><td><input type="text" class="regular-text" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[csp]" value="<?php echo esc_attr((string) $settings['csp']); ?>" /><p class="description"><?php echo esc_html__('Balanced CSP is enabled by default for tougher hardening. Override only if required by your theme/plugins.', 'secure-guard'); ?></p></td></tr>
-                    <tr><th><?php echo esc_html__('Referrer Policy', 'secure-guard'); ?></th><td><input type="text" class="regular-text" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[referrer_policy]" value="<?php echo esc_attr((string) $settings['referrer_policy']); ?>" /></td></tr>
-                    <tr><th><?php echo esc_html__('Permissions Policy', 'secure-guard'); ?></th><td><input type="text" class="regular-text" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[permissions_policy]" value="<?php echo esc_attr((string) $settings['permissions_policy']); ?>" /></td></tr>
-                    <tr><th><?php echo esc_html__('Enable COOP', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[enable_coop]" value="1" <?php checked(!empty($settings['enable_coop'])); ?> /> <?php echo esc_html__('Send Cross-Origin-Opener-Policy: same-origin', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('Enable CORP', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[enable_corp]" value="1" <?php checked(!empty($settings['enable_corp'])); ?> /> <?php echo esc_html__('Send Cross-Origin-Resource-Policy: same-site', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('Enable HSTS', 'secure-guard'); ?></th><td><label><input type="checkbox" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[enable_hsts]" value="1" <?php checked(!empty($settings['enable_hsts'])); ?> /> <?php echo esc_html__('Send Strict-Transport-Security on HTTPS', 'secure-guard'); ?></label></td></tr>
-                    <tr><th><?php echo esc_html__('HSTS max-age', 'secure-guard'); ?></th><td><input type="number" min="0" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[hsts_max_age]" value="<?php echo esc_attr((string) $settings['hsts_max_age']); ?>" /></td></tr>
-                    <tr><th><?php echo esc_html__('Log retention (days)', 'secure-guard'); ?></th><td><input type="number" min="1" name="<?php echo esc_attr(Secure_Guard_Config::OPTION_KEY); ?>[log_retention_days]" value="<?php echo esc_attr((string) $settings['log_retention_days']); ?>" /></td></tr>
-                </table>
-                <?php submit_button(); ?>
-            </form>
+            <nav class="nav-tab-wrapper wp-clearfix">
+                <?php foreach (self::TABS as $slug => $label): ?>
+                    <a href="<?php echo esc_url(add_query_arg('tab', $slug, $page_base)); ?>"
+                       class="nav-tab<?php echo $active_tab === $slug ? ' nav-tab-active' : ''; ?>">
+                        <?php echo esc_html__($label, 'secure-guard'); ?>
+                    </a>
+                <?php endforeach; ?>
+            </nav>
+
+            <div class="card sg-settings-card">
+                <form method="post" action="options.php">
+                    <?php settings_fields('secure_guard_settings_group'); ?>
+                    <table class="form-table" role="presentation">
+                        <?php $this->render_tab($active_tab, $settings, $roles); ?>
+                    </table>
+                    <?php submit_button(); ?>
+                </form>
             </div>
         </div>
+
+        <script>
+        (function() {
+            document.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('.sg-reveal-secret').forEach(function(btn) {
+                    var targetId = btn.getAttribute('data-target');
+                    var input    = document.getElementById(targetId);
+                    if (!input) return;
+                    btn.addEventListener('click', function() {
+                        var isHidden = input.type === 'password';
+                        input.type   = isHidden ? 'text' : 'password';
+                        btn.textContent = isHidden
+                            ? btn.getAttribute('data-hide')
+                            : btn.getAttribute('data-show');
+                    });
+                });
+            });
+        })();
+        </script>
         <?php
+    }
+
+    private function render_tab(string $tab, array $s, array $roles): void {
+        $k = Secure_Guard_Config::OPTION_KEY;
+
+        switch ($tab) {
+            case 'rest-jwt':
+                $this->row_checkbox($k, 'rest_lock_enabled', $s,
+                    __('JWT-Only REST Mode', 'secure-guard'),
+                    __('Enforce JWT bearer tokens on all external REST requests. Logged-in browser sessions (Gutenberg, Elementor, Divi, media library) always bypass this gate.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'block_sensitive_endpoints', $s,
+                    __('Block Sensitive Endpoints', 'secure-guard'),
+                    __('Routes marked sensitive require full_api_access scope even with a valid JWT.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'log_allowed_requests', $s,
+                    __('Log Allowed Requests', 'secure-guard'),
+                    __('Write a DB log entry for each successfully authenticated JWT API request. Disable on high-traffic sites to reduce write pressure.', 'secure-guard')
+                );
+                $this->row_number($k, 'rate_limit_per_minute', $s,
+                    __('Token Rate Limit (req/min)', 'secure-guard'),
+                    __('Per-token request cap applied to external Bearer token callers.', 'secure-guard'),
+                    1
+                );
+                echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:13px;font-weight:600;border-top:1px solid #dcdcde;padding-top:12px;">'
+                    . esc_html__('JWT Configuration', 'secure-guard') . '</h3></th></tr>';
+                // AUTH_KEY fallback warning — shown when no explicit secret is configured anywhere.
+                if (empty($s['jwt_secret']) && !defined('SECURE_GUARD_JWT_SECRET')) {
+                    echo '<tr><td colspan="2"><div class="notice notice-warning inline" style="margin:8px 0 4px;">'
+                        . '<p>' . esc_html__('No JWT secret is set. Tokens are currently signed using WordPress AUTH_KEY. If AUTH_KEY changes (e.g., after a security reset), all issued tokens will be invalidated. Set an explicit secret below for stability.', 'secure-guard') . '</p>'
+                        . '</div></td></tr>';
+                }
+                ?>
+                <tr>
+                    <td colspan="2">
+                        <div class="notice notice-info inline" style="margin:4px 0 8px;">
+                            <p><strong><?php esc_html_e('Migrating to a new server?', 'secure-guard'); ?></strong>
+                            <?php esc_html_e('Copy the JWT secret from your old site and paste it here. All tokens are cryptographically bound to this secret — if it changes every previously issued token is immediately invalidated.', 'secure-guard'); ?></p>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e('JWT Secret', 'secure-guard'); ?></th>
+                    <td>
+                        <div class="sg-secret-wrap">
+                            <input type="password" id="sg_jwt_secret" class="regular-text"
+                                name="<?php echo esc_attr($k); ?>[jwt_secret]"
+                                value="<?php echo esc_attr((string) $s['jwt_secret']); ?>"
+                                autocomplete="new-password" />
+                            <button type="button" class="button button-secondary sg-reveal-secret"
+                                data-target="sg_jwt_secret"
+                                data-show="<?php esc_attr_e('Show', 'secure-guard'); ?>"
+                                data-hide="<?php esc_attr_e('Hide', 'secure-guard'); ?>">
+                                <?php esc_html_e('Show', 'secure-guard'); ?>
+                            </button>
+                        </div>
+                        <p class="description"><?php esc_html_e('Optional. If empty the plugin falls back to SECURE_GUARD_JWT_SECRET constant, then AUTH_KEY.', 'secure-guard'); ?></p>
+                    </td>
+                </tr>
+                <?php
+                $this->row_url($k, 'jwt_issuer', $s, __('JWT Issuer', 'secure-guard'), '');
+                $this->row_url($k, 'jwt_audience', $s, __('JWT Audience', 'secure-guard'), '');
+                $this->row_number($k, 'jwt_ttl_minutes', $s, __('JWT TTL (minutes)', 'secure-guard'), '', 1);
+                $this->row_number($k, 'jwt_clock_skew_seconds', $s, __('JWT Clock Skew (seconds)', 'secure-guard'), '', 0);
+                break;
+
+            case 'login':
+                $this->row_checkbox($k, 'login_protection_enabled', $s,
+                    __('Login Protection', 'secure-guard'),
+                    __('Enable IP-based lockouts on repeated failed login attempts.', 'secure-guard')
+                );
+                $this->row_number($k, 'login_short_threshold', $s,
+                    __('Short Block Threshold', 'secure-guard'),
+                    __('Failed attempts before the first short lockout triggers.', 'secure-guard'),
+                    1
+                );
+                $this->row_number($k, 'login_medium_threshold', $s,
+                    __('Medium Block Threshold', 'secure-guard'),
+                    '',
+                    1
+                );
+                $this->row_number($k, 'login_hard_block_threshold', $s,
+                    __('Hard Block Threshold', 'secure-guard'),
+                    __('Triggers an extended IP-level block.', 'secure-guard'),
+                    1
+                );
+                break;
+
+            case 'rate-limiting':
+                $this->row_checkbox($k, 'bot_rate_limit_enabled', $s,
+                    __('Bot Rate Limiting', 'secure-guard'),
+                    __('Throttle anonymous IP traffic. All logged-in users (any role) are automatically exempt.', 'secure-guard')
+                );
+                $this->row_number($k, 'bot_rate_limit_per_minute', $s,
+                    __('Requests per Minute', 'secure-guard'),
+                    __('Anonymous requests allowed per IP per minute before a block is applied.', 'secure-guard'),
+                    1
+                );
+                $this->row_number($k, 'bot_block_minutes', $s,
+                    __('Block Duration (minutes)', 'secure-guard'),
+                    '',
+                    1
+                );
+                $this->row_number($k, 'scan_404_threshold', $s,
+                    __('404 Scan Threshold', 'secure-guard'),
+                    __('Number of 404s in a 10-minute window before the IP is blocked for 24 hours.', 'secure-guard'),
+                    1
+                );
+                $this->row_checkbox($k, 'block_user_enumeration', $s,
+                    __('Block User Enumeration', 'secure-guard'),
+                    __('Block author query strings, author archive paths, and direct /wp/v2/users probes.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'block_xmlrpc', $s,
+                    __('Block XML-RPC', 'secure-guard'),
+                    __('Return 403 for any direct request to xmlrpc.php.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'block_public_wp_cron', $s,
+                    __('Block Public WP-Cron', 'secure-guard'),
+                    __('Deny external HTTP access to wp-cron.php. Internal and CLI cron execution are unaffected.', 'secure-guard')
+                );
+                echo '<tr><th>' . esc_html__('Global IP Whitelist', 'secure-guard') . '</th><td>';
+                echo '<textarea rows="6" cols="60" name="' . esc_attr($k) . '[ip_whitelist]">'
+                    . esc_textarea((string) $s['ip_whitelist']) . '</textarea>';
+                echo '<p class="description">' . esc_html__('One IPv4 / IPv6 / CIDR per line. These IPs bypass all rate limiting and block checks.', 'secure-guard') . '</p></td></tr>';
+
+                echo '<tr><th>' . esc_html__('Allowed User Roles', 'secure-guard') . '</th><td>';
+                foreach ($roles as $role_key => $role) {
+                    echo '<label style="display:block"><input type="checkbox"'
+                        . ' name="' . esc_attr($k) . '[allowed_roles][]"'
+                        . ' value="' . esc_attr($role_key) . '"'
+                        . ' ' . checked(in_array($role_key, $s['allowed_roles'], true), true, false) . ' /> '
+                        . esc_html($role['name']) . '</label>';
+                }
+                echo '<p class="description">' . esc_html__('Legacy role-bypass list. Note: all logged-in users already bypass JWT enforcement regardless of this setting.', 'secure-guard') . '</p></td></tr>';
+                break;
+
+            case 'headers':
+                echo '<tr><th>' . esc_html__('Content Security Policy', 'secure-guard') . '</th><td>';
+                echo '<input type="text" class="large-text" name="' . esc_attr($k) . '[csp]" value="' . esc_attr((string) $s['csp']) . '" />';
+                echo '<p class="description">' . esc_html__('Leave empty to use the default balanced CSP. Override only when required by your theme or plugins.', 'secure-guard') . '</p></td></tr>';
+                $this->row_text($k, 'referrer_policy', $s, __('Referrer Policy', 'secure-guard'), '');
+                $this->row_text($k, 'permissions_policy', $s, __('Permissions Policy', 'secure-guard'), '');
+                $this->row_checkbox($k, 'enable_coop', $s,
+                    __('COOP', 'secure-guard'),
+                    __('Send Cross-Origin-Opener-Policy: same-origin.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'enable_corp', $s,
+                    __('CORP', 'secure-guard'),
+                    __('Send Cross-Origin-Resource-Policy: same-site.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'enable_hsts', $s,
+                    __('HSTS', 'secure-guard'),
+                    __('Send Strict-Transport-Security on HTTPS connections.', 'secure-guard')
+                );
+                $this->row_number($k, 'hsts_max_age', $s, __('HSTS max-age (seconds)', 'secure-guard'), '', 0);
+                break;
+
+            case 'hardening':
+                $this->row_checkbox($k, 'hide_wp_info', $s,
+                    __('Hide WordPress Fingerprint', 'secure-guard'),
+                    __('Remove generator tags, version query strings, and block readme/license/debug.log probes.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'file_integrity_enabled', $s,
+                    __('File Integrity Monitoring', 'secure-guard'),
+                    __('Run hourly checksum scans of wp-admin and wp-includes and alert on changes.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'admin_area_protection_enabled', $s,
+                    __('Admin Area Protection', 'secure-guard'),
+                    __('Guard /wp-admin pages from unauthenticated access. admin-ajax.php is always exempt so public AJAX handlers work.', 'secure-guard')
+                );
+                echo '<tr><th>' . esc_html__('Admin IP Whitelist', 'secure-guard') . '</th><td>';
+                echo '<textarea rows="4" cols="60" name="' . esc_attr($k) . '[admin_ip_whitelist]">'
+                    . esc_textarea((string) $s['admin_ip_whitelist']) . '</textarea>';
+                echo '<p class="description">' . esc_html__('Optional. If set, only these IPs can access /wp-admin pages.', 'secure-guard') . '</p></td></tr>';
+                echo '<tr><th>' . esc_html__('Trusted Proxy IPs', 'secure-guard') . '</th><td>';
+                echo '<textarea rows="4" cols="60" name="' . esc_attr($k) . '[trusted_proxy_ips]">'
+                    . esc_textarea((string) ($s['trusted_proxy_ips'] ?? '')) . '</textarea>';
+                echo '<p class="description">' . esc_html__('Forwarded-For headers are trusted only when REMOTE_ADDR matches this list.', 'secure-guard') . '</p></td></tr>';
+                $this->row_number($k, 'log_retention_days', $s,
+                    __('Log Retention (days)', 'secure-guard'),
+                    __('Log entries older than this are automatically purged by the scheduled maintenance task.', 'secure-guard'),
+                    1
+                );
+                break;
+            case 'alerts':
+                $this->row_checkbox($k, 'email_alerts_enabled', $s,
+                    __('Enable Email Alerts', 'secure-guard'),
+                    __('Send email notifications to the site admin address for security events. Uses wp_mail().', 'secure-guard')
+                );
+                echo '<tr><td colspan="2"><p class="description" style="padding:0 0 4px;">';
+                $admin_email = esc_html((string) get_option('admin_email', ''));
+                /* translators: %s is the admin email address */
+                printf(esc_html__('Alerts are sent to the site admin address: %s', 'secure-guard'), '<strong>' . $admin_email . '</strong>');
+                echo '</p></td></tr>';
+                $this->row_checkbox($k, 'alert_on_hard_block', $s,
+                    __('Alert on Hard IP Block', 'secure-guard'),
+                    __('Send an email when an IP is hard-blocked by the bot rate limiter or login protection.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'alert_on_integrity', $s,
+                    __('Alert on File Integrity Changes', 'secure-guard'),
+                    __('Send an email when the hourly integrity scan detects added, modified, or deleted core files.', 'secure-guard')
+                );
+                $this->row_number($k, 'alert_on_token_expiry_days', $s,
+                    __('Token Expiry Warning (days)', 'secure-guard'),
+                    __('Send an email when a JWT token will expire within this many days. Set to 0 to disable.', 'secure-guard'),
+                    0
+                );
+                break;
+        }
+    }
+
+    private function row_checkbox(string $k, string $field, array $s, string $label, string $desc = ''): void {
+        echo '<tr><th>' . esc_html($label) . '</th><td>';
+        // Hidden field ensures an unchecked box on the active tab submits "0" rather than
+        // nothing, so it is not confused with a field on a different (non-rendered) tab.
+        echo '<input type="hidden" name="' . esc_attr($k) . '[' . esc_attr($field) . ']" value="0" />';
+        echo '<label><input type="checkbox" name="' . esc_attr($k) . '[' . esc_attr($field) . ']" value="1" '
+            . checked(!empty($s[$field]), true, false) . ' />';
+        if ($desc !== '') {
+            echo ' <span class="description">' . esc_html($desc) . '</span>';
+        }
+        echo '</label></td></tr>';
+    }
+
+    private function row_number(string $k, string $field, array $s, string $label, string $desc = '', int $min = 1): void {
+        echo '<tr><th>' . esc_html($label) . '</th><td>';
+        echo '<input type="number" min="' . esc_attr((string) $min) . '" class="small-text"'
+            . ' name="' . esc_attr($k) . '[' . esc_attr($field) . ']"'
+            . ' value="' . esc_attr((string) ($s[$field] ?? $min)) . '" />';
+        if ($desc !== '') {
+            echo '<p class="description">' . esc_html($desc) . '</p>';
+        }
+        echo '</td></tr>';
+    }
+
+    private function row_text(string $k, string $field, array $s, string $label, string $desc = ''): void {
+        echo '<tr><th>' . esc_html($label) . '</th><td>';
+        echo '<input type="text" class="regular-text"'
+            . ' name="' . esc_attr($k) . '[' . esc_attr($field) . ']"'
+            . ' value="' . esc_attr((string) ($s[$field] ?? '')) . '" />';
+        if ($desc !== '') {
+            echo '<p class="description">' . esc_html($desc) . '</p>';
+        }
+        echo '</td></tr>';
+    }
+
+    private function row_url(string $k, string $field, array $s, string $label, string $desc = ''): void {
+        echo '<tr><th>' . esc_html($label) . '</th><td>';
+        // type="text" instead of type="url" — browsers reject valid URLs like
+        // http://localhost:8080/ or custom-scheme URIs under strict url validation.
+        echo '<input type="text" class="regular-text"'
+            . ' name="' . esc_attr($k) . '[' . esc_attr($field) . ']"'
+            . ' value="' . esc_attr((string) ($s[$field] ?? '')) . '" />';
+        if ($desc !== '') {
+            echo '<p class="description">' . esc_html($desc) . '</p>';
+        }
+        echo '</td></tr>';
     }
 }

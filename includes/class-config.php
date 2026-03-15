@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) {
 final class Secure_Guard_Config {
     public const OPTION_KEY = 'secure_guard_settings';
     public const DB_VERSION_OPTION = 'secure_guard_db_version';
-    public const DB_VERSION = '1.3.0';
+    public const DB_VERSION = '1.5.0';
 
     public static function defaults(): array {
         return [
@@ -45,6 +45,11 @@ final class Secure_Guard_Config {
             'enable_hsts' => 1,
             'hsts_max_age' => 31536000,
             'log_retention_days' => 30,
+            'log_allowed_requests' => 0,
+            'email_alerts_enabled' => 0,
+            'alert_on_hard_block' => 1,
+            'alert_on_integrity' => 1,
+            'alert_on_token_expiry_days' => 3,
         ];
     }
 
@@ -64,11 +69,13 @@ final class Secure_Guard_Config {
         $settings['login_hard_block_threshold'] = max((int) $settings['login_medium_threshold'], (int) $settings['login_hard_block_threshold']);
         $settings['hsts_max_age'] = max(0, (int) $settings['hsts_max_age']);
         $settings['log_retention_days'] = max(1, (int) $settings['log_retention_days']);
+        $settings['log_allowed_requests'] = !empty($settings['log_allowed_requests']) ? 1 : 0;
         $settings['allowed_roles'] = is_array($settings['allowed_roles']) ? $settings['allowed_roles'] : ['administrator'];
         $settings['jwt_ttl_minutes'] = max(1, (int) $settings['jwt_ttl_minutes']);
         $settings['jwt_clock_skew_seconds'] = max(0, (int) $settings['jwt_clock_skew_seconds']);
         $settings['jwt_issuer'] = trim((string) $settings['jwt_issuer']) !== '' ? (string) $settings['jwt_issuer'] : home_url('/');
         $settings['jwt_audience'] = trim((string) $settings['jwt_audience']) !== '' ? (string) $settings['jwt_audience'] : home_url('/');
+        $settings['alert_on_token_expiry_days'] = max(0, (int) $settings['alert_on_token_expiry_days']);
 
         if (isset($settings['csp']) && trim((string) $settings['csp']) === "default-src 'self'") {
             $settings['csp'] = '';
@@ -129,6 +136,11 @@ final class Secure_Guard_Config {
             'enable_hsts' => !empty($input['enable_hsts']) ? 1 : 0,
             'hsts_max_age' => max(0, (int) ($input['hsts_max_age'] ?? $defaults['hsts_max_age'])),
             'log_retention_days' => max(1, (int) ($input['log_retention_days'] ?? $defaults['log_retention_days'])),
+            'log_allowed_requests' => !empty($input['log_allowed_requests']) ? 1 : 0,
+            'email_alerts_enabled' => !empty($input['email_alerts_enabled']) ? 1 : 0,
+            'alert_on_hard_block' => !empty($input['alert_on_hard_block']) ? 1 : 0,
+            'alert_on_integrity' => !empty($input['alert_on_integrity']) ? 1 : 0,
+            'alert_on_token_expiry_days' => max(0, (int) ($input['alert_on_token_expiry_days'] ?? $defaults['alert_on_token_expiry_days'])),
         ];
 
         $settings['login_medium_threshold'] = max($settings['login_short_threshold'], $settings['login_medium_threshold']);

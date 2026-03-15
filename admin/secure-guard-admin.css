@@ -1,0 +1,330 @@
+/* Secure Guard — Admin UI Stylesheet */
+
+/* =========================================================
+   Custom properties
+   ========================================================= */
+.secure-guard-ui {
+	--sg-content-width: 1200px;
+	--sg-border-radius: 8px;
+	--sg-gap: 16px;
+}
+
+/* =========================================================
+   Layout helpers
+   ========================================================= */
+.secure-guard-ui .card {
+	border-radius: var(--sg-border-radius);
+	max-width: var(--sg-content-width);
+}
+
+/* Overrides the different max-widths used inline across pages */
+.secure-guard-ui .sg-content-wide {
+	max-width: 1400px;
+}
+.secure-guard-ui .sg-content-narrow {
+	max-width: 900px;
+}
+
+.secure-guard-ui .sg-settings-card {
+	padding: 0 18px 18px;
+	margin-top: 0;
+	border-top-left-radius: 0;
+}
+
+.secure-guard-ui .card h2 {
+	margin-top: 0;
+	margin-bottom: 12px;
+}
+
+.secure-guard-ui .description {
+	max-width: 1000px;
+}
+
+/* =========================================================
+   Metric card grid — used on Dashboard
+   ========================================================= */
+.secure-guard-ui .sg-metric-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: var(--sg-gap);
+	max-width: var(--sg-content-width);
+	margin-bottom: var(--sg-gap);
+}
+
+.secure-guard-ui .sg-metric-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: var(--sg-border-radius);
+	border-left-width: 4px;
+	border-left-color: #c3c4c7;
+	padding: 18px 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.secure-guard-ui .sg-metric-card--alert {
+	border-left-color: #842029;
+	background: #fff8f8;
+}
+
+.secure-guard-ui .sg-metric-card--ok {
+	border-left-color: #0f5132;
+}
+
+.secure-guard-ui .sg-metric-card__header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: #646970;
+	font-size: 12px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.4px;
+}
+
+.secure-guard-ui .sg-metric-card__header .dashicons {
+	width: 16px;
+	height: 16px;
+	font-size: 16px;
+}
+
+.secure-guard-ui .sg-metric-card__number {
+	font-size: 32px;
+	font-weight: 700;
+	line-height: 1.1;
+	color: #1d2327;
+}
+
+.secure-guard-ui .sg-metric-card--alert .sg-metric-card__number {
+	color: #842029;
+}
+
+.secure-guard-ui .sg-metric-card__sub {
+	font-size: 11px;
+	color: #646970;
+}
+
+/* =========================================================
+   Tables
+   ========================================================= */
+.secure-guard-ui .widefat td,
+.secure-guard-ui .widefat th {
+	padding: 9px 12px;
+	vertical-align: top;
+}
+
+.secure-guard-ui .form-table th {
+	width: 260px;
+	padding-top: 14px;
+	font-weight: 500;
+}
+
+.secure-guard-ui .form-table td {
+	padding-top: 10px;
+}
+
+/* Row state — used on tokens table */
+.secure-guard-ui .sg-row--revoked {
+	opacity: 0.5;
+}
+
+.secure-guard-ui .sg-row--revoked td:first-child,
+.secure-guard-ui .sg-row--revoked strong {
+	text-decoration: line-through;
+}
+
+.secure-guard-ui .sg-row--expired {
+	border-left: 3px solid #ffc107;
+}
+
+/* =========================================================
+   Flex helpers
+   ========================================================= */
+.secure-guard-ui .sg-action-row {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+	align-items: center;
+}
+
+/* =========================================================
+   Pill badges
+   ========================================================= */
+.secure-guard-ui .sg-pill {
+	display: inline-block;
+	padding: 2px 9px;
+	border: 1px solid currentColor;
+	border-radius: 999px;
+	font-size: 11px;
+	line-height: 1.6;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.3px;
+	white-space: nowrap;
+}
+
+.secure-guard-ui .sg-pill--blocked {
+	color: #842029;
+	background-color: #f8d7da;
+	border-color: #f1aeb5;
+}
+
+.secure-guard-ui .sg-pill--allowed {
+	color: #0f5132;
+	background-color: #d1e7dd;
+	border-color: #a3cfbb;
+}
+
+.secure-guard-ui .sg-pill--warning {
+	color: #664d03;
+	background-color: #fff3cd;
+	border-color: #ffda6a;
+}
+
+.secure-guard-ui .sg-pill--revoked {
+	color: #41464b;
+	background-color: #e2e3e5;
+	border-color: #c4c8cb;
+}
+
+.secure-guard-ui .sg-pill--info {
+	color: #084298;
+	background-color: #cfe2ff;
+	border-color: #9ec5fe;
+}
+
+/* =========================================================
+   HTTP method badge
+   ========================================================= */
+.secure-guard-ui .sg-method-badge {
+	display: inline-block;
+	padding: 1px 6px;
+	border-radius: 3px;
+	background: #f0f0f1;
+	font-family: monospace;
+	font-size: 11px;
+}
+
+/* =========================================================
+   Code cells
+   ========================================================= */
+.secure-guard-ui code {
+	font-size: 12px;
+}
+
+/* =========================================================
+   JWT reveal button spacing
+   ========================================================= */
+.secure-guard-ui .sg-secret-wrap {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+/* =========================================================
+   Tabs
+   ========================================================= */
+.secure-guard-ui .nav-tab-wrapper {
+	border-bottom: 1px solid #c3c4c7;
+	margin-bottom: 0;
+}
+
+/* =========================================================
+   Pagination controls
+   ========================================================= */
+.secure-guard-ui .tablenav .paging-input,
+.secure-guard-ui .sg-pagination span {
+	margin: 0 8px;
+	font-size: 13px;
+}
+
+/* =========================================================
+   Copy-to-clipboard button
+   ========================================================= */
+.secure-guard-ui .sg-copy-btn {
+	font-size: 11px !important;
+	padding: 0 7px !important;
+	height: 22px !important;
+	line-height: 20px !important;
+	vertical-align: middle;
+}
+
+.secure-guard-ui .sg-copy-btn.copied {
+	color: #0f5132 !important;
+	border-color: #a3cfbb !important;
+	background: #d1e7dd !important;
+}
+
+/* =========================================================
+   Inline edit form panel
+   ========================================================= */
+.secure-guard-ui .sg-edit-form {
+	background: #f9f9f9;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	padding: 16px 20px;
+}
+
+.secure-guard-ui .sg-edit-form h3 {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+/* =========================================================
+   Expiry countdown label on token rows
+   ========================================================= */
+.secure-guard-ui .sg-expiry-label {
+	font-size: 11px;
+	color: #646970;
+	display: block;
+	margin-top: 2px;
+}
+
+.secure-guard-ui .sg-expiry-label--soon {
+	color: #664d03;
+	font-weight: 600;
+}
+
+/* =========================================================
+   Responsive breakpoints
+   ========================================================= */
+@media (max-width: 1100px) {
+	.secure-guard-ui .sg-metric-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+@media (max-width: 782px) {
+	.secure-guard-ui .sg-metric-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.secure-guard-ui .card,
+	.secure-guard-ui .sg-content-wide,
+	.secure-guard-ui .sg-content-narrow {
+		max-width: 100% !important;
+	}
+
+	.secure-guard-ui .form-table th {
+		width: auto;
+	}
+
+	/* Filter bar on Logs page */
+	.secure-guard-ui .sg-filter-bar {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 10px;
+	}
+
+	/* Token action rows */
+	.secure-guard-ui .sg-action-row {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	/* Metric card numbers */
+	.secure-guard-ui .sg-metric-card__number {
+		font-size: 24px;
+	}
+}

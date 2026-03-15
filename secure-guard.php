@@ -17,6 +17,7 @@ if (!defined('ABSPATH')) {
 define('SECURE_GUARD_VERSION', '1.0.0');
 define('SECURE_GUARD_FILE', __FILE__);
 define('SECURE_GUARD_DIR', plugin_dir_path(__FILE__));
+define('SECURE_GUARD_URL', plugin_dir_url(__FILE__));
 
 if (file_exists(SECURE_GUARD_DIR . 'vendor/autoload.php')) {
     require_once SECURE_GUARD_DIR . 'vendor/autoload.php';
@@ -42,6 +43,7 @@ require_once SECURE_GUARD_DIR . 'includes/security/class-wp-hardening.php';
 require_once SECURE_GUARD_DIR . 'includes/security/class-admin-area-protector.php';
 require_once SECURE_GUARD_DIR . 'includes/security/class-file-integrity-monitor.php';
 require_once SECURE_GUARD_DIR . 'includes/security/class-security-maintenance.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-alert-manager.php';
 require_once SECURE_GUARD_DIR . 'includes/security/class-security-events.php';
 require_once SECURE_GUARD_DIR . 'admin/class-admin-menu.php';
 require_once SECURE_GUARD_DIR . 'admin/class-dashboard-page.php';
@@ -49,6 +51,7 @@ require_once SECURE_GUARD_DIR . 'admin/class-settings-page.php';
 require_once SECURE_GUARD_DIR . 'admin/class-tokens-page.php';
 require_once SECURE_GUARD_DIR . 'admin/class-rules-page.php';
 require_once SECURE_GUARD_DIR . 'admin/class-logs-page.php';
+require_once SECURE_GUARD_DIR . 'admin/class-blocked-ips-page.php';
 require_once SECURE_GUARD_DIR . 'includes/class-plugin.php';
 
 function secure_guard_bootstrap(): Secure_Guard_Plugin {

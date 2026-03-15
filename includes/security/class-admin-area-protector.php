@@ -58,6 +58,12 @@ final class Secure_Guard_Admin_Area_Protector {
         $request_uri = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? ''));
         $path = (string) (parse_url($request_uri, PHP_URL_PATH) ?: '');
 
+        // admin-ajax.php handles wp_ajax_nopriv_* actions for logged-out users.
+        // Never block it here — plugins relying on public AJAX would break.
+        if (basename($path) === 'admin-ajax.php') {
+            return false;
+        }
+
         return str_starts_with($path, '/wp-admin');
     }
 
@@ -82,28 +88,24 @@ final class Secure_Guard_Admin_Area_Protector {
     }
 
     private function is_globally_blocked(string $ip): bool {
-        $row = $this->limits->get('ip-block:' . $ip);
-        if (!$row || empty($row['blocked_until'])) {
-            return false;
+        // Cache per-IP block state for 60 s to avoid a DB SELECT on every /wp-admin hit.
+        $cache_key = 'sg_iblk_' . substr(md5('ip-block:' . $ip), 0, 16);
+        $cached = get_transient($cache_key);
+        if ($cached !== false) {
+            return (bool) $cached;
         }
 
-        return (strtotime((string) $row['blocked_until']) ?: 0) > time();
+        $row = $this->limits->get('ip-block:' . $ip);
+        $blocked = $row && !empty($row['blocked_until']) && (strtotime((string) $row['blocked_until']) ?: 0) > time();
+        set_transient($cache_key, $blocked ? 1 : 0, 60);
+
+        return $blocked;
     }
 
     private function ip_is_allowed_by_custom_list(string $ip, string $list): bool {
-        $entries = preg_split('/\r\n|\r|\n/', $list) ?: [];
-        foreach ($entries as $entry) {
-            $entry = trim($entry);
-            if ($entry === '') {
-                continue;
-            }
-
-            if ($entry === $ip) {
-                return true;
-            }
-        }
-
-        return false;
+        // Delegate to the shared IP_Whitelist logic that handles CIDR ranges,
+        // so admin IP whitelist entries like '10.0.0.0/8' work correctly.
+        return $this->ip_whitelist->check_list($ip, $list);
     }
 
     private function deny(string $reason, string $ip, int $status): void {

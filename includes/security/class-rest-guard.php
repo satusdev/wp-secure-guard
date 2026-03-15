@@ -44,6 +44,12 @@ final class Secure_Guard_REST_Guard {
             return $result;
         }
 
+        // Logged-in browser sessions use WP cookie auth — bypass JWT enforcement so
+        // Gutenberg, Elementor, Divi, and the media library all work normally.
+        if (is_user_logged_in()) {
+            return $result;
+        }
+
         $token_row = $this->token_manager->validate_token($token);
         if (!$token_row) {
             $this->logs->log($route, $method, 'BLOCKED', 'Missing or invalid JWT token', ['ip' => $ip]);
@@ -75,7 +81,11 @@ final class Secure_Guard_REST_Guard {
             return new WP_Error('secure_guard_rate_limit', __('Rate limit exceeded.', 'secure-guard'), ['status' => 429]);
         }
 
-        $this->logs->log($route, $method, 'ALLOWED', 'JWT API request allowed', ['token_id' => $token_row['id'] ?? 0, 'ip' => $ip]);
+        // touch_last_used is already handled inside validate_token().
+        // Only log ALLOWED events when explicitly enabled (reduces DB write pressure).
+        if (!empty($this->settings['log_allowed_requests'])) {
+            $this->logs->log($route, $method, 'ALLOWED', 'JWT API request allowed', ['token_id' => $token_row['id'] ?? 0, 'ip' => $ip]);
+        }
 
         return $result;
     }
