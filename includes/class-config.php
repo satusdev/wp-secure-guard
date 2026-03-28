@@ -9,6 +9,52 @@ final class Secure_Guard_Config {
     public const DB_VERSION_OPTION = 'secure_guard_db_version';
     public const DB_VERSION = '1.5.0';
 
+    /**
+     * Maps setting keys to environment variable names.
+     * Compatible with Bedrock phpdotenv (.env files), Apache SetEnv, and system env.
+     *
+     * Priority: PHP constant > env var > database setting > default.
+     *
+     * Bedrock .env example:
+     *   SECURE_GUARD_JWT_SECRET=your-long-random-secret-here
+     *   SECURE_GUARD_JWT_ISSUER=https://example.com/
+     *   SECURE_GUARD_JWT_AUDIENCE=https://example.com/
+     *
+     * Setting issuer and audience to the same value across all environments means
+     * tokens survive a staging-to-production database clone without re-signing.
+     */
+    public const ENV_VARS = [
+        'jwt_secret'   => 'SECURE_GUARD_JWT_SECRET',
+        'jwt_issuer'   => 'SECURE_GUARD_JWT_ISSUER',
+        'jwt_audience' => 'SECURE_GUARD_JWT_AUDIENCE',
+    ];
+
+    /**
+     * Returns the trimmed env var value for the given setting key, or '' if not set.
+     * Checks $_ENV first (populated by phpdotenv/Bedrock), then getenv() (system env).
+     */
+    public static function get_env_value(string $key): string {
+        $env_var = self::ENV_VARS[$key] ?? '';
+        if ($env_var === '') {
+            return '';
+        }
+
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        $val = $_ENV[$env_var] ?? false;
+        if ($val === false) {
+            $val = getenv($env_var);
+        }
+
+        return is_string($val) && trim($val) !== '' ? trim($val) : '';
+    }
+
+    /**
+     * Returns true if an active environment variable override exists for this setting key.
+     */
+    public static function is_env_overridden(string $key): bool {
+        return self::get_env_value($key) !== '';
+    }
+
     public static function defaults(): array {
         return [
             'rest_lock_enabled' => 1,
@@ -81,6 +127,16 @@ final class Secure_Guard_Config {
             $settings['csp'] = '';
         }
 
+        // Apply environment variable overrides. Env vars take precedence over the database-stored
+        // settings but yield to PHP constants (handled per-setting where applicable).
+        // Compatible with Bedrock phpdotenv, Apache SetEnv, and system environment variables.
+        foreach (self::ENV_VARS as $setting_key => $_env_var) {
+            $env_val = self::get_env_value($setting_key);
+            if ($env_val !== '') {
+                $settings[$setting_key] = $env_val;
+            }
+        }
+
         return $settings;
     }
 
@@ -145,6 +201,20 @@ final class Secure_Guard_Config {
 
         $settings['login_medium_threshold'] = max($settings['login_short_threshold'], $settings['login_medium_threshold']);
         $settings['login_hard_block_threshold'] = max($settings['login_medium_threshold'], $settings['login_hard_block_threshold']);
+
+        // Do not persist env-var-managed settings to the database.
+        // The env value takes precedence at runtime via get_settings(). Preserving the existing
+        // DB value intact means it serves as a fallback if the env var is later removed.
+        $currently_stored = (array) get_option(self::OPTION_KEY, []);
+        foreach (array_keys(self::ENV_VARS) as $env_managed_key) {
+            if (self::get_env_value($env_managed_key) !== '') {
+                if (array_key_exists($env_managed_key, $currently_stored)) {
+                    $settings[$env_managed_key] = $currently_stored[$env_managed_key];
+                } else {
+                    unset($settings[$env_managed_key]);
+                }
+            }
+        }
 
         return $settings;
     }

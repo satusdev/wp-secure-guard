@@ -122,7 +122,7 @@ final class Secure_Guard_Settings_Page {
                 echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:13px;font-weight:600;border-top:1px solid #dcdcde;padding-top:12px;">'
                     . esc_html__('JWT Configuration', 'secure-guard') . '</h3></th></tr>';
                 // AUTH_KEY fallback warning — shown when no explicit secret is configured anywhere.
-                if (empty($s['jwt_secret']) && !defined('SECURE_GUARD_JWT_SECRET')) {
+                if (empty($s['jwt_secret']) && !defined('SECURE_GUARD_JWT_SECRET') && !Secure_Guard_Config::is_env_overridden('jwt_secret')) {
                     echo '<tr><td colspan="2"><div class="notice notice-warning inline" style="margin:8px 0 4px;">'
                         . '<p>' . esc_html__('No JWT secret is set. Tokens are currently signed using WordPress AUTH_KEY. If AUTH_KEY changes (e.g., after a security reset), all issued tokens will be invalidated. Set an explicit secret below for stability.', 'secure-guard') . '</p>'
                         . '</div></td></tr>';
@@ -139,24 +139,30 @@ final class Secure_Guard_Settings_Page {
                 <tr>
                     <th><?php esc_html_e('JWT Secret', 'secure-guard'); ?></th>
                     <td>
-                        <div class="sg-secret-wrap">
-                            <input type="password" id="sg_jwt_secret" class="regular-text"
-                                name="<?php echo esc_attr($k); ?>[jwt_secret]"
-                                value="<?php echo esc_attr((string) $s['jwt_secret']); ?>"
-                                autocomplete="new-password" />
-                            <button type="button" class="button button-secondary sg-reveal-secret"
-                                data-target="sg_jwt_secret"
-                                data-show="<?php esc_attr_e('Show', 'secure-guard'); ?>"
-                                data-hide="<?php esc_attr_e('Hide', 'secure-guard'); ?>">
-                                <?php esc_html_e('Show', 'secure-guard'); ?>
-                            </button>
-                        </div>
-                        <p class="description"><?php esc_html_e('Optional. If empty the plugin falls back to SECURE_GUARD_JWT_SECRET constant, then AUTH_KEY.', 'secure-guard'); ?></p>
+                        <?php if (Secure_Guard_Config::is_env_overridden('jwt_secret')): ?>
+                            <p><span class="sg-pill sg-pill--info">ENV</span> <code>SECURE_GUARD_JWT_SECRET</code></p>
+                            <input type="hidden" name="<?php echo esc_attr($k); ?>[jwt_secret]" value="" />
+                            <p class="description"><?php esc_html_e('Controlled by the SECURE_GUARD_JWT_SECRET environment variable. Remove the env var to manage it here.', 'secure-guard'); ?></p>
+                        <?php else: ?>
+                            <div class="sg-secret-wrap">
+                                <input type="password" id="sg_jwt_secret" class="regular-text"
+                                    name="<?php echo esc_attr($k); ?>[jwt_secret]"
+                                    value="<?php echo esc_attr((string) $s['jwt_secret']); ?>"
+                                    autocomplete="new-password" />
+                                <button type="button" class="button button-secondary sg-reveal-secret"
+                                    data-target="sg_jwt_secret"
+                                    data-show="<?php esc_attr_e('Show', 'secure-guard'); ?>"
+                                    data-hide="<?php esc_attr_e('Hide', 'secure-guard'); ?>">
+                                    <?php esc_html_e('Show', 'secure-guard'); ?>
+                                </button>
+                            </div>
+                            <p class="description"><?php esc_html_e('Optional. If empty, falls back to SECURE_GUARD_JWT_SECRET constant, then AUTH_KEY. Bedrock: add SECURE_GUARD_JWT_SECRET to .env.', 'secure-guard'); ?></p>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php
-                $this->row_url($k, 'jwt_issuer', $s, __('JWT Issuer', 'secure-guard'), '');
-                $this->row_url($k, 'jwt_audience', $s, __('JWT Audience', 'secure-guard'), '');
+                $this->row_url_env($k, 'jwt_issuer', $s, __('JWT Issuer', 'secure-guard'), '', 'SECURE_GUARD_JWT_ISSUER');
+                $this->row_url_env($k, 'jwt_audience', $s, __('JWT Audience', 'secure-guard'), '', 'SECURE_GUARD_JWT_AUDIENCE');
                 $this->row_number($k, 'jwt_ttl_minutes', $s, __('JWT TTL (minutes)', 'secure-guard'), '', 1);
                 $this->row_number($k, 'jwt_clock_skew_seconds', $s, __('JWT Clock Skew (seconds)', 'secure-guard'), '', 0);
                 break;
@@ -350,6 +356,31 @@ final class Secure_Guard_Settings_Page {
             . ' value="' . esc_attr((string) ($s[$field] ?? '')) . '" />';
         if ($desc !== '') {
             echo '<p class="description">' . esc_html($desc) . '</p>';
+        }
+        echo '</td></tr>';
+    }
+
+    private function row_url_env(string $k, string $field, array $s, string $label, string $desc, string $env_var_name): void {
+        echo '<tr><th>' . esc_html($label) . '</th><td>';
+        if (Secure_Guard_Config::is_env_overridden($field)) {
+            echo '<p><span class="sg-pill sg-pill--info">ENV</span> <code>' . esc_html($env_var_name) . '</code></p>';
+            // Show the resolved value as readonly for visual confirmation, but do not
+            // allow editing. The hidden input submits empty; save_settings() restores
+            // the existing DB value so the fallback is preserved if the env var is removed.
+            echo '<input type="text" class="regular-text" value="' . esc_attr((string) ($s[$field] ?? '')) . '" readonly disabled />';
+            echo '<input type="hidden" name="' . esc_attr($k) . '[' . esc_attr($field) . ']" value="" />';
+            echo '<p class="description">' . sprintf(
+                /* translators: %s is the environment variable name */
+                esc_html__('Controlled by the %s environment variable. Remove the env var to manage it here.', 'secure-guard'),
+                '<code>' . esc_html($env_var_name) . '</code>'
+            ) . '</p>';
+        } else {
+            echo '<input type="text" class="regular-text"'
+                . ' name="' . esc_attr($k) . '[' . esc_attr($field) . ']"'
+                . ' value="' . esc_attr((string) ($s[$field] ?? '')) . '" />';
+            if ($desc !== '') {
+                echo '<p class="description">' . esc_html($desc) . '</p>';
+            }
         }
         echo '</td></tr>';
     }
