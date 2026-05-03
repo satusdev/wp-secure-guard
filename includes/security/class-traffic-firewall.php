@@ -47,6 +47,12 @@ final class Secure_Guard_Traffic_Firewall {
             $this->deny_request('IP is blocked', 403, $ip);
         }
 
+        // IDS: reject common injection and probing patterns for unauthenticated requests.
+        // Skipped for logged-in users, WP-CLI, DOING_AJAX, DOING_CRON, and REST requests.
+        if (!$this->should_skip_throttle() && $this->is_malicious_request()) {
+            $this->deny_request('Malicious request pattern detected', 403, $ip);
+        }
+
         if (empty($this->settings['bot_rate_limit_enabled'])) {
             return;
         }
@@ -156,7 +162,9 @@ final class Secure_Guard_Traffic_Firewall {
     private function is_sensitive_path_request(): bool {
         $request_uri = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? '/'));
         $path = strtolower((string) (parse_url($request_uri, PHP_URL_PATH) ?: ''));
-        $sensitive = ['wp-config.php', '/.env', '/.git', '/wp-content/debug.log', '/app/debug.log'];
+        // Uses str_contains so 'debug.log' matches /anything/debug.log regardless of
+        // installation layout (standard /wp-content/, Bedrock /app/, custom paths).
+        $sensitive = ['wp-config.php', '/.env', '/.git', 'debug.log', '/error_log'];
 
         foreach ($sensitive as $needle) {
             if (str_contains($path, $needle)) {
@@ -164,8 +172,11 @@ final class Secure_Guard_Traffic_Firewall {
             }
         }
 
-        if (!empty($this->settings['block_xmlrpc']) && in_array($path, ['/xmlrpc.php', '/wp/xmlrpc.php'], true)) {
-            return true;
+        // Block XML-RPC at any path depth (handles Bedrock /wp/xmlrpc.php and custom structures).
+        if (!empty($this->settings['block_xmlrpc'])) {
+            if (str_ends_with($path, '/xmlrpc.php') || in_array($path, ['/xmlrpc.php', '/wp/xmlrpc.php'], true)) {
+                return true;
+            }
         }
 
         return false;
@@ -206,6 +217,39 @@ final class Secure_Guard_Traffic_Firewall {
         $server_addr = sanitize_text_field((string) ($_SERVER['SERVER_ADDR'] ?? ''));
         if ($remote_addr !== '' && ($remote_addr === $server_addr || in_array($remote_addr, ['127.0.0.1', '::1'], true))) {
             return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Checks the raw REQUEST_URI (after percent-decoding) for common attack signatures.
+     * Covers path traversal, SQL injection, XSS, and OS command injection patterns.
+     * Only called for non-whitelisted, unauthenticated requests (guarded by should_skip_throttle).
+     */
+    private function is_malicious_request(): bool {
+        // Decode percent-encoding to catch obfuscated attacks (%2e%2e%2f = ../).
+        $uri = strtolower(rawurldecode((string) ($_SERVER['REQUEST_URI'] ?? '')));
+        $patterns = [
+            // Path traversal
+            '../', '%2e%2e/', '%2e%2e%2f',
+            // XSS
+            '<script', '</script', 'javascript:', 'onerror=', 'onload=',
+            // SQL injection
+            'union select', 'information_schema', 'load_file(', 'into outfile',
+            'concat(', 'group_concat(', 'sleep(', 'benchmark(',
+            'drop table', 'insert into',
+            // PHP code execution
+            'base64_decode(', 'eval(',
+            'system(', 'exec(', 'passthru(', 'shell_exec(',
+            // Server probing
+            '/proc/self/environ',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (str_contains($uri, $pattern)) {
+                return true;
+            }
         }
 
         return false;

@@ -76,10 +76,27 @@ final class Secure_Guard_Admin_Area_Protector {
     }
 
     private function is_suspicious_request(): bool {
-        $request_uri = strtolower(sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? '')));
-        $patterns = ['../', '<script', 'base64_', 'union%20select', 'concat(', 'sleep('];
+        // Decode percent-encoding to catch obfuscated attack patterns.
+        $uri = strtolower(rawurldecode((string) ($_SERVER['REQUEST_URI'] ?? '')));
+        $patterns = [
+            // Path traversal
+            '../', '%2e%2e/', '%2e%2e%2f',
+            // XSS
+            '<script', '</script', 'javascript:', 'onerror=', 'onload=',
+            // SQL injection
+            'union select', 'union%20select', 'union+select',
+            'information_schema', 'load_file(', 'into outfile',
+            'concat(', 'group_concat(', 'sleep(', 'benchmark(',
+            'drop table', 'insert into',
+            // PHP code execution
+            'base64_decode(', 'base64_encode(', 'eval(',
+            'system(', 'exec(', 'passthru(', 'shell_exec(', 'phpinfo(',
+            // Server probing
+            '/proc/self/environ', 'etc/passwd',
+        ];
+
         foreach ($patterns as $pattern) {
-            if (str_contains($request_uri, $pattern)) {
+            if (str_contains($uri, $pattern)) {
                 return true;
             }
         }
