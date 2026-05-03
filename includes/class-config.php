@@ -10,6 +10,21 @@ final class Secure_Guard_Config {
     public const DB_VERSION = '1.5.0';
 
     /**
+     * Permitted scope values. Enforced at token creation and edit time.
+     * The full_api_access scope grants access to sensitive endpoints (users, settings, plugins).
+     */
+    public const VALID_SCOPES = [
+        'read_posts',
+        'write_posts',
+        'read_media',
+        'write_media',
+        'read_users',
+        'write_users',
+        'read_settings',
+        'full_api_access',
+    ];
+
+    /**
      * Maps setting keys to environment variable names.
      * Compatible with Bedrock phpdotenv (.env files), Apache SetEnv, and system env.
      *
@@ -83,7 +98,9 @@ final class Secure_Guard_Config {
             'jwt_audience' => home_url('/'),
             'jwt_ttl_minutes' => 60,
             'jwt_clock_skew_seconds' => 30,
-            'csp' => "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'self'; object-src 'none'; base-uri 'self'",
+            // unsafe-inline is intentionally omitted from script-src to prevent XSS.
+            // style-src retains unsafe-inline because most WordPress themes rely on inline styles.
+            'csp' => "default-src 'self' https: data: blob:; script-src 'self' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'self'; object-src 'none'; base-uri 'self'",
             'referrer_policy' => 'strict-origin-when-cross-origin',
             'permissions_policy' => 'camera=(), microphone=(), geolocation=()',
             'enable_coop' => 1,

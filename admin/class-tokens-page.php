@@ -11,11 +11,13 @@ final class Secure_Guard_Tokens_Page {
     private Secure_Guard_Token_Repository $tokens;
     private Secure_Guard_Token_Manager $token_manager;
     private array $settings;
+    private Secure_Guard_Log_Repository $logs;
 
-    public function __construct(Secure_Guard_Token_Repository $tokens, Secure_Guard_Token_Manager $token_manager, array $settings) {
+    public function __construct(Secure_Guard_Token_Repository $tokens, Secure_Guard_Token_Manager $token_manager, array $settings, Secure_Guard_Log_Repository $logs) {
         $this->tokens = $tokens;
         $this->token_manager = $token_manager;
         $this->settings = $settings;
+        $this->logs = $logs;
     }
 
     public function register(): void {
@@ -35,6 +37,11 @@ final class Secure_Guard_Tokens_Page {
         $name = sanitize_text_field((string) ($_POST['name'] ?? 'Token'));
         $scopes_raw = sanitize_text_field((string) ($_POST['scope'] ?? 'read_posts'));
         $scopes = array_filter(array_map('sanitize_key', array_map('trim', explode(',', $scopes_raw))));
+        // Reject any scope not in the defined allowlist to prevent arbitrary scope inflation.
+        $scopes = array_values(array_intersect($scopes, Secure_Guard_Config::VALID_SCOPES));
+        if (empty($scopes)) {
+            $scopes = ['read_posts'];
+        }
 
         $allowed_endpoints = sanitize_textarea_field((string) ($_POST['allowed_endpoints'] ?? ''));
         $allowed_ips = sanitize_textarea_field((string) ($_POST['allowed_ips'] ?? ''));
@@ -78,6 +85,7 @@ final class Secure_Guard_Tokens_Page {
         }
 
         $this->tokens->store_jwt($token_id, $plain_token);
+        $this->logs->log('admin/tokens', 'POST', 'AUDIT', 'Token created: ' . $name, ['token_id' => $token_id, 'admin_user_id' => get_current_user_id()]);
 
         $recent_tokens = $this->get_recent_tokens();
         $recent_tokens[$token_id] = $plain_token;
@@ -98,6 +106,7 @@ final class Secure_Guard_Tokens_Page {
         if ($id > 0) {
             $this->tokens->revoke($id);
             $this->remove_recent_token($id);
+            $this->logs->log('admin/tokens', 'POST', 'AUDIT', 'Token revoked', ['token_id' => $id, 'admin_user_id' => get_current_user_id()]);
         }
 
         delete_transient('sg_dashboard_stats');
@@ -145,6 +154,7 @@ final class Secure_Guard_Tokens_Page {
         }
 
         $this->tokens->store_jwt($id, $plain_token);
+        $this->logs->log('admin/tokens', 'POST', 'AUDIT', 'Token reissued', ['token_id' => $id, 'admin_user_id' => get_current_user_id()]);
 
         $recent_tokens      = $this->get_recent_tokens();
         $recent_tokens[$id] = $plain_token;
@@ -164,6 +174,7 @@ final class Secure_Guard_Tokens_Page {
         if ($id > 0) {
             $this->tokens->delete($id);
             $this->remove_recent_token($id);
+            $this->logs->log('admin/tokens', 'POST', 'AUDIT', 'Token deleted', ['token_id' => $id, 'admin_user_id' => get_current_user_id()]);
         }
 
         delete_transient('sg_dashboard_stats');
@@ -186,6 +197,11 @@ final class Secure_Guard_Tokens_Page {
         $name           = sanitize_text_field((string) ($_POST['name'] ?? ''));
         $scopes_raw     = sanitize_text_field((string) ($_POST['scope'] ?? 'read_posts'));
         $scopes         = array_filter(array_map('sanitize_key', array_map('trim', explode(',', $scopes_raw))));
+        // Reject any scope not in the defined allowlist.
+        $scopes         = array_values(array_intersect($scopes, Secure_Guard_Config::VALID_SCOPES));
+        if (empty($scopes)) {
+            $scopes = ['read_posts'];
+        }
         $allowed_endpoints = sanitize_textarea_field((string) ($_POST['allowed_endpoints'] ?? ''));
         $allowed_ips    = sanitize_textarea_field((string) ($_POST['allowed_ips'] ?? ''));
         $rate_limit     = isset($_POST['rate_limit_per_minute']) && $_POST['rate_limit_per_minute'] !== ''
@@ -208,6 +224,7 @@ final class Secure_Guard_Tokens_Page {
             exit;
         }
 
+        $this->logs->log('admin/tokens', 'POST', 'AUDIT', 'Token edited: ' . $name, ['token_id' => $id, 'admin_user_id' => get_current_user_id()]);
         delete_transient('sg_dashboard_stats');
         wp_safe_redirect(admin_url('admin.php?page=secure-guard-tokens&edited=1'));
         exit;
@@ -301,7 +318,7 @@ final class Secure_Guard_Tokens_Page {
                 <?php wp_nonce_field('secure_guard_create_token'); ?>
                 <table class="form-table" role="presentation">
                     <tr><th><?php echo esc_html__('Name', 'secure-guard'); ?></th><td><input type="text" name="name" class="regular-text" required /></td></tr>
-                    <tr><th><?php echo esc_html__('Scopes', 'secure-guard'); ?></th><td><input type="text" name="scope" class="regular-text" value="read_posts" /><p class="description">read_posts, upload_media, full_api_access</p></td></tr>
+                    <tr><th><?php echo esc_html__('Scopes', 'secure-guard'); ?></th><td><input type="text" name="scope" class="regular-text" value="read_posts" /><p class="description"><?php echo esc_html(implode(', ', Secure_Guard_Config::VALID_SCOPES)); ?></p></td></tr>
                     <tr><th><?php echo esc_html__('Allowed Endpoints', 'secure-guard'); ?></th><td><textarea name="allowed_endpoints" rows="5" cols="60" placeholder="/wp/v2/posts*"></textarea></td></tr>
                     <tr><th><?php echo esc_html__('Allowed IPs', 'secure-guard'); ?></th><td><textarea name="allowed_ips" rows="4" cols="60" placeholder="12.34.56.78"></textarea></td></tr>
                     <tr><th><?php echo esc_html__('Rate limit per minute', 'secure-guard'); ?></th><td><input type="number" min="1" name="rate_limit_per_minute" value="100" /></td></tr>
