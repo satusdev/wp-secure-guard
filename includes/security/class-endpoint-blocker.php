@@ -62,6 +62,17 @@ final class Secure_Guard_Endpoint_Blocker {
             return true;
         }
 
+        // Block debug log and PHP error log at any installation path (standard, Bedrock, custom).
+        if (str_ends_with($path, '/debug.log') || $path === '/debug.log'
+            || str_ends_with($path, '/error_log') || $path === '/error_log') {
+            return true;
+        }
+
+        // Block XML-RPC at any path depth (covers /app/xmlrpc.php, /web/xmlrpc.php, etc.).
+        if (str_ends_with($path, '/xmlrpc.php')) {
+            return true;
+        }
+
         return false;
     }
 

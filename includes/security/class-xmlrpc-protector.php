@@ -32,7 +32,19 @@ final class Secure_Guard_XMLRPC_Protector {
 
         $request_uri = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? '/'));
         $path = strtolower((string) (parse_url($request_uri, PHP_URL_PATH) ?: '/'));
-        if (!in_array($path, ['/xmlrpc.php', '/wp/xmlrpc.php'], true)) {
+
+        // Detect xmlrpc.php at standard, Bedrock (/wp/xmlrpc.php), and any custom path.
+        $is_xmlrpc = in_array($path, ['/xmlrpc.php', '/wp/xmlrpc.php'], true)
+            || str_ends_with($path, '/xmlrpc.php');
+
+        // Catch cases where mod_rewrite rewrites the URL but SCRIPT_FILENAME still
+        // points to the actual xmlrpc.php file on disk.
+        if (!$is_xmlrpc) {
+            $script = strtolower(basename((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')));
+            $is_xmlrpc = ($script === 'xmlrpc.php');
+        }
+
+        if (!$is_xmlrpc) {
             return;
         }
 

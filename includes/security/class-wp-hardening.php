@@ -71,6 +71,17 @@ final class Secure_Guard_WP_Hardening {
             $is_probe_path = true;
         }
 
+        // Catch debug.log and error_log at any installation path (standard, Bedrock, custom).
+        if (!$is_probe_path && (str_ends_with($path, '/debug.log') || $path === '/debug.log'
+            || str_ends_with($path, '/error_log') || $path === '/error_log')) {
+            $is_probe_path = true;
+        }
+
+        // Catch XML-RPC at any path depth.
+        if (!$is_probe_path && str_ends_with($path, '/xmlrpc.php')) {
+            $is_probe_path = true;
+        }
+
         if (!$is_probe_path) {
             return;
         }
