@@ -44,7 +44,7 @@ final class Secure_Guard_Plugin {
             $rate_limit,
             $endpoint_blocker
         );
-        $this->enumeration_blocker = new Secure_Guard_User_Enumeration_Blocker($settings, $this->logs);
+        $this->enumeration_blocker = new Secure_Guard_User_Enumeration_Blocker($settings, $this->logs, $token_manager);
         $this->xmlrpc_protector = new Secure_Guard_XMLRPC_Protector($settings, $this->logs);
         $this->security_headers = new Secure_Guard_Security_Headers($settings);
         $this->login_protection = new Secure_Guard_Login_Protection($settings, $this->logs, $this->limits, $ip_whitelist, $alert_manager);
@@ -58,7 +58,7 @@ final class Secure_Guard_Plugin {
         $this->admin_menu = new Secure_Guard_Admin_Menu(
             new Secure_Guard_Dashboard_Page($this->logs, $this->tokens, $this->limits),
             new Secure_Guard_Settings_Page(),
-            new Secure_Guard_Tokens_Page($this->tokens, $token_manager, $settings),
+            new Secure_Guard_Tokens_Page($this->tokens, $token_manager, $settings, $this->logs),
             new Secure_Guard_Rules_Page(),
             new Secure_Guard_Logs_Page($this->logs),
             new Secure_Guard_Blocked_IPs_Page($this->limits)
@@ -74,6 +74,7 @@ final class Secure_Guard_Plugin {
         $this->loader->action('init', [$this->file_integrity_monitor, 'register_schedule'], 8, 0);
         $this->loader->action('init', [$this->security_maintenance, 'register_schedule'], 9, 0);
         $this->loader->filter('rest_authentication_errors', [$this->rest_guard, 'authenticate'], 20, 1);
+        $this->loader->filter('rest_pre_dispatch', [$this->enumeration_blocker, 'block_rest_users_endpoint'], 5, 3);
         $this->loader->filter('rest_pre_dispatch', [$this->rest_guard, 'pre_dispatch'], 10, 3);
         $this->loader->action('template_redirect', [$this->enumeration_blocker, 'block_author_enumeration'], 1, 0);
         $this->loader->action('template_redirect', [$this->wp_hardening, 'block_probe_files'], 2, 0);
