@@ -91,6 +91,11 @@ register_deactivation_hook(
         if ($log_retention_timestamp) {
             wp_unschedule_event($log_retention_timestamp, 'secure_guard_log_retention_purge');
         }
+
+        $token_expiry_timestamp = wp_next_scheduled('secure_guard_token_expiry_check');
+        if ($token_expiry_timestamp) {
+            wp_unschedule_event($token_expiry_timestamp, 'secure_guard_token_expiry_check');
+        }
     }
 );
 
