@@ -39,6 +39,10 @@ final class Secure_Guard_Traffic_Firewall {
             $this->deny_request('Sensitive path blocked', 403, $ip);
         }
 
+        if ($this->is_bad_bot()) {
+            $this->deny_request('Malicious User-Agent blocked', 403, $ip);
+        }
+
         if ($this->ip_whitelist->is_allowed($ip)) {
             return;
         }
@@ -248,6 +252,37 @@ final class Secure_Guard_Traffic_Firewall {
 
         foreach ($patterns as $pattern) {
             if (str_contains($uri, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function is_bad_bot(): bool {
+        if (empty($this->settings['block_bad_bots'])) {
+            return false;
+        }
+
+        $ua = strtolower(sanitize_text_field((string) ($_SERVER['HTTP_USER_AGENT'] ?? '')));
+        if ($ua === '') {
+            return false; // Empty UA is common for some APIs, maybe don't block by default.
+        }
+
+        $bad_bots = [
+            'ahrefsbot', 'blexbot', 'dotbot', 'mj12bot', 'rogerbot', 'semrushbot',
+            'petalbot', 'python-requests', 'libwww-perl', 'go-http-client',
+            'guzzlehttp', 'scrapy', 'headlesschrome', 'zgrab', 'masscan', 'nmap', 'sqlmap',
+            'havij', 'pangolin', 'nikto', 'dirbuster', 'w3af', 'acunetix', 'absent',
+            'blackwidow', 'custom-get-url', 'emailcollector', 'emailwolf', 'extract',
+            'eyeblaster', 'fhscan', 'flaming', 'getright', 'getweb', 'httrack',
+            'interget', 'linksmanager', 'offline', 'prowebwalker', 'rogue',
+            'scanalert', 'superbot', 'teleport', 'vci', 'webcopy', 'webstripper',
+            'webzip', 'zeus',
+        ];
+
+        foreach ($bad_bots as $bot) {
+            if (str_contains($ua, $bot)) {
                 return true;
             }
         }

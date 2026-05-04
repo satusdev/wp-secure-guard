@@ -74,6 +74,7 @@ final class Secure_Guard_Plugin {
         $this->loader->action('init', [$this->file_integrity_monitor, 'register_schedule'], 8, 0);
         $this->loader->action('init', [$this->security_maintenance, 'register_schedule'], 9, 0);
         $this->loader->filter('rest_authentication_errors', [$this->rest_guard, 'authenticate'], 20, 1);
+        $this->loader->filter('rest_endpoints', [$this->enumeration_blocker, 'remove_rest_endpoints'], 99, 1);
         $this->loader->filter('rest_pre_dispatch', [$this->enumeration_blocker, 'block_rest_users_endpoint'], 5, 3);
         $this->loader->filter('rest_pre_dispatch', [$this->rest_guard, 'pre_dispatch'], 10, 3);
         $this->loader->action('template_redirect', [$this->enumeration_blocker, 'block_author_enumeration'], 1, 0);

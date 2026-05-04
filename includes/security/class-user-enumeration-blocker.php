@@ -15,6 +15,53 @@ final class Secure_Guard_User_Enumeration_Blocker {
         $this->token_manager = $token_manager;
     }
 
+    /**
+     * Completely removes user-related endpoints from the REST API registry.
+     * Hooked to rest_endpoints at priority 99.
+     */
+    public function remove_rest_endpoints(array $endpoints): array {
+        $is_strict = !empty($this->settings['rest_strict_mode']);
+        if (empty($this->settings['block_user_enumeration']) && !$is_strict) {
+            return $endpoints;
+        }
+
+        // Always allow for admins and privileged JWT tokens.
+        if (is_user_logged_in() && current_user_can('list_users')) {
+            return $endpoints;
+        }
+
+        $bearer = $this->token_manager->extract_bearer_token();
+        if ($bearer !== null) {
+            $token_row = $this->token_manager->validate_token($bearer);
+            if ($token_row) {
+                $scopes = $this->token_manager->get_token_scopes($token_row);
+                if (in_array('full_api_access', $scopes, true) || in_array('read_users', $scopes, true)) {
+                    return $endpoints;
+                }
+            }
+        }
+
+        if ($is_strict) {
+            // In strict mode, we literally wipe all endpoints for anyone who isn't authorized.
+            // This returns a 404 for any and all /wp-json requests.
+            return [];
+        }
+
+        $targets = [
+            '/wp/v2/users',
+            '/wp/v2/users/(?P<id>[\d]+)',
+            '/wp/v2/users/me',
+        ];
+
+        foreach ($targets as $route) {
+            if (isset($endpoints[$route])) {
+                unset($endpoints[$route]);
+            }
+        }
+
+        return $endpoints;
+    }
+
     public function block_author_enumeration(): void {
         if (empty($this->settings['block_user_enumeration'])) {
             return;
@@ -64,12 +111,16 @@ final class Secure_Guard_User_Enumeration_Blocker {
      * @return mixed WP_Error on block, original response otherwise.
      */
     public function block_rest_users_endpoint($response, WP_REST_Server $server, WP_REST_Request $request) {
-        if (empty($this->settings['block_user_enumeration'])) {
+        $is_strict = !empty($this->settings['rest_strict_mode']);
+        if (empty($this->settings['block_user_enumeration']) && !$is_strict) {
             return $response;
         }
 
         $route = (string) $request->get_route();
-        if ($route !== '/wp/v2/users' && !str_starts_with($route, '/wp/v2/users/')) {
+        $is_user_route = ($route === '/wp/v2/users' || str_starts_with($route, '/wp/v2/users/'));
+
+        // In strict mode, we block EVERYTHING for unprivileged callers.
+        if (!$is_user_route && !$is_strict) {
             return $response;
         }
 
@@ -80,21 +131,34 @@ final class Secure_Guard_User_Enumeration_Blocker {
 
         // A JWT token with full_api_access scope represents an explicitly trusted programmatic
         // caller — allow it so REST admin integrations continue to work.
+        // If it's just a user route and we are NOT in strict mode, we check for full_api_access.
+        // If we ARE in strict mode, we still allow JWT tokens if they have proper scopes for the route,
+        // but Secure_Guard_REST_Guard already handles general JWT enforcement.
+        // Here we specifically guard the "strict" or "user" block.
         $bearer = $this->token_manager->extract_bearer_token();
         if ($bearer !== null) {
             $token_row = $this->token_manager->validate_token($bearer);
-            if ($token_row && in_array('full_api_access', $this->token_manager->get_token_scopes($token_row), true)) {
-                return $response;
+            if ($token_row) {
+                $scopes = $this->token_manager->get_token_scopes($token_row);
+                if (in_array('full_api_access', $scopes, true)) {
+                    return $response;
+                }
+                // For user routes, specifically allow if they have read_users or write_users scope.
+                if ($is_user_route && (in_array('read_users', $scopes, true) || in_array('write_users', $scopes, true))) {
+                    return $response;
+                }
             }
         }
 
         $method = sanitize_text_field((string) $request->get_method());
-        $this->logs->log('/wp/v2/users', $method, 'BLOCKED', 'User enumeration via REST API blocked', []);
+        $reason = $is_strict ? 'REST API strict mode block' : 'User enumeration via REST API blocked';
+        $this->logs->log($route, $method, 'BLOCKED', $reason, []);
 
+        // Return a 404 instead of 403 to pretend the endpoint doesn't exist.
         return new WP_Error(
-            'secure_guard_user_enum_blocked',
-            __('Endpoint not available.', 'secure-guard'),
-            ['status' => 403]
+            'rest_no_route',
+            __('No route was found matching the URL and request method.', 'secure-guard'),
+            ['status' => 404]
         );
     }
 }

@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) {
 final class Secure_Guard_Config {
     public const OPTION_KEY = 'secure_guard_settings';
     public const DB_VERSION_OPTION = 'secure_guard_db_version';
-    public const DB_VERSION = '1.5.0';
+    public const DB_VERSION = '1.6.0';
 
     /**
      * Permitted scope values. Enforced at token creation and edit time.
@@ -113,6 +113,12 @@ final class Secure_Guard_Config {
             'alert_on_hard_block' => 1,
             'alert_on_integrity' => 1,
             'alert_on_token_expiry_days' => 3,
+            'rest_strict_mode' => 0,
+            'disable_emojis' => 1,
+            'disable_oembeds' => 1,
+            'disable_file_editor' => 1,
+            'hide_login_errors' => 1,
+            'block_bad_bots' => 1,
         ];
     }
 
@@ -133,6 +139,12 @@ final class Secure_Guard_Config {
         $settings['hsts_max_age'] = max(0, (int) $settings['hsts_max_age']);
         $settings['log_retention_days'] = max(1, (int) $settings['log_retention_days']);
         $settings['log_allowed_requests'] = !empty($settings['log_allowed_requests']) ? 1 : 0;
+        $settings['rest_strict_mode'] = !empty($settings['rest_strict_mode']) ? 1 : 0;
+        $settings['disable_emojis'] = !empty($settings['disable_emojis']) ? 1 : 0;
+        $settings['disable_oembeds'] = !empty($settings['disable_oembeds']) ? 1 : 0;
+        $settings['disable_file_editor'] = !empty($settings['disable_file_editor']) ? 1 : 0;
+        $settings['hide_login_errors'] = !empty($settings['hide_login_errors']) ? 1 : 0;
+        $settings['block_bad_bots'] = !empty($settings['block_bad_bots']) ? 1 : 0;
         $settings['allowed_roles'] = is_array($settings['allowed_roles']) ? $settings['allowed_roles'] : ['administrator'];
         $settings['jwt_ttl_minutes'] = max(1, (int) $settings['jwt_ttl_minutes']);
         $settings['jwt_clock_skew_seconds'] = max(0, (int) $settings['jwt_clock_skew_seconds']);
@@ -214,6 +226,12 @@ final class Secure_Guard_Config {
             'alert_on_hard_block' => !empty($input['alert_on_hard_block']) ? 1 : 0,
             'alert_on_integrity' => !empty($input['alert_on_integrity']) ? 1 : 0,
             'alert_on_token_expiry_days' => max(0, (int) ($input['alert_on_token_expiry_days'] ?? $defaults['alert_on_token_expiry_days'])),
+            'rest_strict_mode' => !empty($input['rest_strict_mode']) ? 1 : 0,
+            'disable_emojis' => !empty($input['disable_emojis']) ? 1 : 0,
+            'disable_oembeds' => !empty($input['disable_oembeds']) ? 1 : 0,
+            'disable_file_editor' => !empty($input['disable_file_editor']) ? 1 : 0,
+            'hide_login_errors' => !empty($input['hide_login_errors']) ? 1 : 0,
+            'block_bad_bots' => !empty($input['block_bad_bots']) ? 1 : 0,
         ];
 
         $settings['login_medium_threshold'] = max($settings['login_short_threshold'], $settings['login_medium_threshold']);

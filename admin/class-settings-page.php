@@ -110,6 +110,10 @@ final class Secure_Guard_Settings_Page {
                     __('Block Sensitive Endpoints', 'secure-guard'),
                     __('Routes marked sensitive require full_api_access scope even with a valid JWT.', 'secure-guard')
                 );
+                $this->row_checkbox($k, 'rest_strict_mode', $s,
+                    __('REST Strict Mode', 'secure-guard'),
+                    __('Completely disable the REST API for all unauthenticated users. Discovery links will also be removed from the site header.', 'secure-guard')
+                );
                 $this->row_checkbox($k, 'log_allowed_requests', $s,
                     __('Log Allowed Requests', 'secure-guard'),
                     __('Write a DB log entry for each successfully authenticated JWT API request. Disable on high-traffic sites to reduce write pressure.', 'secure-guard')
@@ -194,6 +198,10 @@ final class Secure_Guard_Settings_Page {
                     __('Bot Rate Limiting', 'secure-guard'),
                     __('Throttle anonymous IP traffic. All logged-in users (any role) are automatically exempt.', 'secure-guard')
                 );
+                $this->row_checkbox($k, 'block_bad_bots', $s,
+                    __('Block Bad Bots', 'secure-guard'),
+                    __('Deny access to known malicious scrapers, scanners, and automated tools based on User-Agent.', 'secure-guard')
+                );
                 $this->row_number($k, 'bot_rate_limit_per_minute', $s,
                     __('Requests per Minute', 'secure-guard'),
                     __('Anonymous requests allowed per IP per minute before a block is applied.', 'secure-guard'),
@@ -262,6 +270,22 @@ final class Secure_Guard_Settings_Page {
                 $this->row_checkbox($k, 'hide_wp_info', $s,
                     __('Hide WordPress Fingerprint', 'secure-guard'),
                     __('Remove generator tags, version query strings, and block readme/license/debug.log probes.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'disable_emojis', $s,
+                    __('Disable Emojis', 'secure-guard'),
+                    __('Remove the emoji detection script and styles to reduce page bloat and fingerprinting.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'disable_oembeds', $s,
+                    __('Disable oEmbeds', 'secure-guard'),
+                    __('Disable oEmbed discovery links and host JS.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'disable_file_editor', $s,
+                    __('Disable File Editor', 'secure-guard'),
+                    __('Prevent the theme and plugin editor from being accessed in the dashboard.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'hide_login_errors', $s,
+                    __('Hide Login Errors', 'secure-guard'),
+                    __('Obfuscate login error messages to prevent username harvesting.', 'secure-guard')
                 );
                 $this->row_checkbox($k, 'file_integrity_enabled', $s,
                     __('File Integrity Monitoring', 'secure-guard'),

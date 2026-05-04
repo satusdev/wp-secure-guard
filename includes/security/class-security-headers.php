@@ -14,6 +14,7 @@ final class Secure_Guard_Security_Headers {
     public function send(): void {
         header('X-Frame-Options: SAMEORIGIN', true);
         header('X-Content-Type-Options: nosniff', true);
+        header('X-XSS-Protection: 0', true);
         header('Referrer-Policy: ' . sanitize_text_field((string) ($this->settings['referrer_policy'] ?? 'strict-origin-when-cross-origin')), true);
         header('Permissions-Policy: ' . sanitize_text_field((string) ($this->settings['permissions_policy'] ?? 'camera=(), microphone=(), geolocation=()')), true);
 
