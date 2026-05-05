@@ -50,6 +50,11 @@ final class Secure_Guard_REST_Guard {
             return $result;
         }
 
+        // Bypass JWT check for whitelisted plugin namespaces (e.g. Contact Form 7).
+        if ($this->is_namespace_allowed($route)) {
+            return $result;
+        }
+
         $token_row = $this->token_manager->validate_token($token);
         if (!$token_row) {
             $this->logs->log($route, $method, 'BLOCKED', 'Missing or invalid JWT token', ['ip' => $ip]);
@@ -146,6 +151,23 @@ final class Secure_Guard_REST_Guard {
         }
 
         return $path;
+    }
+
+    private function is_namespace_allowed(string $route): bool {
+        $allowed_raw = $this->settings['allowed_rest_namespaces'] ?? '';
+        if (trim($allowed_raw) === '') {
+            return false;
+        }
+
+        $allowed_namespaces = array_filter(array_map('trim', explode("\n", $allowed_raw)));
+        foreach ($allowed_namespaces as $namespace) {
+            $namespace = '/' . ltrim($namespace, '/');
+            if ($route === $namespace || str_starts_with($route, $namespace . '/')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }

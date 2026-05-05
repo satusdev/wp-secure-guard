@@ -119,6 +119,7 @@ final class Secure_Guard_Config {
             'disable_file_editor' => 1,
             'hide_login_errors' => 1,
             'block_bad_bots' => 1,
+            'allowed_rest_namespaces' => 'contact-form-7/v1',
         ];
     }
 
@@ -232,6 +233,7 @@ final class Secure_Guard_Config {
             'disable_file_editor' => !empty($input['disable_file_editor']) ? 1 : 0,
             'hide_login_errors' => !empty($input['hide_login_errors']) ? 1 : 0,
             'block_bad_bots' => !empty($input['block_bad_bots']) ? 1 : 0,
+            'allowed_rest_namespaces' => sanitize_textarea_field((string) ($input['allowed_rest_namespaces'] ?? $defaults['allowed_rest_namespaces'])),
         ];
 
         $settings['login_medium_threshold'] = max($settings['login_short_threshold'], $settings['login_medium_threshold']);

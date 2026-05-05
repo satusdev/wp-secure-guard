@@ -12,6 +12,7 @@ final class Secure_Guard_Settings_Page {
         'rate-limiting' => 'Rate Limiting',
         'headers'       => 'Security Headers',
         'hardening'     => 'Hardening',
+        'compatibility' => 'Compatibility',
         'alerts'        => 'Alerts',
     ];
 
@@ -25,6 +26,17 @@ final class Secure_Guard_Settings_Page {
                 'default'           => Secure_Guard_Config::defaults(),
             ]
         );
+        add_action('wp_ajax_sg_generate_secret', [$this, 'ajax_generate_secret']);
+    }
+
+    public function ajax_generate_secret(): void {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
+        }
+        check_ajax_referer('sg_settings_nonce', 'nonce');
+        
+        $secret = bin2hex(random_bytes(32));
+        wp_send_json_success(['secret' => $secret]);
     }
 
     public function sanitize($input): array {
@@ -89,6 +101,38 @@ final class Secure_Guard_Settings_Page {
                         btn.textContent = isHidden
                             ? btn.getAttribute('data-hide')
                             : btn.getAttribute('data-show');
+                    });
+                });
+
+                document.querySelectorAll('.sg-generate-secret').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        if (!confirm('<?php echo esc_js(__('Generating a new secret will immediately invalidate ALL existing JWT tokens. This cannot be undone. Continue?', 'secure-guard')); ?>')) {
+                            return;
+                        }
+                        
+                        btn.disabled = true;
+                        var originalText = btn.textContent;
+                        btn.textContent = '...';
+
+                        jQuery.post(sg_admin_params.ajax_url, {
+                            action: 'sg_generate_secret',
+                            nonce: sg_admin_params.nonce
+                        }, function(response) {
+                            btn.disabled = false;
+                            btn.textContent = originalText;
+                            if (response.success) {
+                                var targetId = btn.getAttribute('data-target');
+                                var input = document.getElementById(targetId);
+                                if (input) {
+                                    input.value = response.data.secret;
+                                    input.type = 'text';
+                                    var revealBtn = document.querySelector('.sg-reveal-secret[data-target="' + targetId + '"]');
+                                    if (revealBtn) {
+                                        revealBtn.textContent = revealBtn.getAttribute('data-hide');
+                                    }
+                                }
+                            }
+                        });
                     });
                 });
             });
@@ -158,6 +202,10 @@ final class Secure_Guard_Settings_Page {
                                     data-show="<?php esc_attr_e('Show', 'secure-guard'); ?>"
                                     data-hide="<?php esc_attr_e('Hide', 'secure-guard'); ?>">
                                     <?php esc_html_e('Show', 'secure-guard'); ?>
+                                </button>
+                                <button type="button" class="button button-secondary sg-generate-secret"
+                                    data-target="sg_jwt_secret">
+                                    <?php esc_html_e('Generate', 'secure-guard'); ?>
                                 </button>
                             </div>
                             <p class="description"><?php esc_html_e('Optional. If empty, falls back to SECURE_GUARD_JWT_SECRET constant, then AUTH_KEY. Bedrock: add SECURE_GUARD_JWT_SECRET to .env.', 'secure-guard'); ?></p>
@@ -308,6 +356,20 @@ final class Secure_Guard_Settings_Page {
                     __('Log entries older than this are automatically purged by the scheduled maintenance task.', 'secure-guard'),
                     1
                 );
+                break;
+            case 'compatibility':
+                echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:13px;font-weight:600;border-top:1px solid #dcdcde;padding-top:12px;">'
+                    . esc_html__('REST API Plugin Compatibility', 'secure-guard') . '</h3></th></tr>';
+                echo '<tr><th>' . esc_html__('Allowed REST Namespaces', 'secure-guard') . '</th><td>';
+                echo '<textarea rows="6" cols="60" name="' . esc_attr($k) . '[allowed_rest_namespaces]">'
+                    . esc_textarea((string) ($s['allowed_rest_namespaces'] ?? '')) . '</textarea>';
+                echo '<p class="description">' . esc_html__('One REST namespace per line (e.g. contact-form-7/v1). These bypass JWT enforcement and REST Strict Mode.', 'secure-guard') . '</p>';
+                echo '<div class="notice notice-info inline" style="margin:8px 0 0;"><p>'
+                    . esc_html__('Matches are precise: "my-plugin/v1" matches "/my-plugin/v1" and "/my-plugin/v1/data", but not "/my-plugin/v1-extra".', 'secure-guard')
+                    . '</p></div>';
+                echo '<div class="notice notice-warning inline" style="margin:8px 0 0;"><p>'
+                    . esc_html__('Whitelisting a namespace allows anonymous access to those endpoints. Only add trusted plugins.', 'secure-guard')
+                    . '</p></div></td></tr>';
                 break;
             case 'alerts':
                 $this->row_checkbox($k, 'email_alerts_enabled', $s,

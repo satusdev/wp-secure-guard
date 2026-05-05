@@ -42,9 +42,15 @@ final class Secure_Guard_User_Enumeration_Blocker {
         }
 
         if ($is_strict) {
-            // In strict mode, we literally wipe all endpoints for anyone who isn't authorized.
-            // This returns a 404 for any and all /wp-json requests.
-            return [];
+            // In strict mode, we literally wipe all endpoints for anyone who isn't authorized,
+            // EXCEPT for those specifically whitelisted in the Compatibility settings.
+            $filtered = [];
+            foreach ($endpoints as $route => $handler) {
+                if ($this->is_route_allowed($route)) {
+                    $filtered[$route] = $handler;
+                }
+            }
+            return $filtered;
         }
 
         $targets = [
@@ -119,8 +125,13 @@ final class Secure_Guard_User_Enumeration_Blocker {
         $route = (string) $request->get_route();
         $is_user_route = ($route === '/wp/v2/users' || str_starts_with($route, '/wp/v2/users/'));
 
-        // In strict mode, we block EVERYTHING for unprivileged callers.
+        // In strict mode, we block EVERYTHING for unprivileged callers,
+        // unless the route belongs to a whitelisted plugin namespace.
         if (!$is_user_route && !$is_strict) {
+            return $response;
+        }
+
+        if ($this->is_route_allowed($route)) {
             return $response;
         }
 
@@ -160,5 +171,22 @@ final class Secure_Guard_User_Enumeration_Blocker {
             __('No route was found matching the URL and request method.', 'secure-guard'),
             ['status' => 404]
         );
+    }
+
+    private function is_route_allowed(string $route): bool {
+        $allowed_raw = $this->settings['allowed_rest_namespaces'] ?? '';
+        if (trim($allowed_raw) === '') {
+            return false;
+        }
+
+        $allowed_namespaces = array_filter(array_map('trim', explode("\n", $allowed_raw)));
+        foreach ($allowed_namespaces as $namespace) {
+            $namespace = '/' . ltrim($namespace, '/');
+            if ($route === $namespace || str_starts_with($route, $namespace . '/')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
