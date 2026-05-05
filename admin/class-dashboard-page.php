@@ -187,6 +187,16 @@ final class Secure_Guard_Dashboard_Page {
         echo '<pre style="white-space:pre-wrap;">' . esc_html("# Without token (expect 403 when REST lock is enabled)\ncurl -i https://SITE/wp-json/wp/v2/posts\n\n# With token\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/posts\n\n# With token to sensitive route (requires full_api_access when enabled)\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/users") . '</pre>';
         echo '</div></details>';
 
+        // ── Documentation & Support ─────────────────────────────────────
+        echo '<div class="sg-docs-dashboard card" style="margin-top:20px; display: flex; align-items: center; gap: 20px; border-left: 4px solid #2271b1;">';
+        echo '<div style="font-size: 40px;"><span class="dashicons dashicons-book-alt" style="font-size: 40px; width: 40px; height: 40px; color: #2271b1;"></span></div>';
+        echo '<div>';
+        echo '<h3 style="margin: 0 0 4px 0;">' . esc_html__('Need Help?', 'secure-guard') . '</h3>';
+        echo '<p style="margin: 0;">' . esc_html__('Check out our comprehensive documentation to learn more about JWT, REST security, and hardening features.', 'secure-guard') . '</p>';
+        echo '<a class="button button-secondary" style="margin-top: 10px;" href="' . esc_url(admin_url('admin.php?page=secure-guard-docs')) . '">' . esc_html__('View Documentation', 'secure-guard') . '</a>';
+        echo '</div>';
+        echo '</div>';
+
         echo '</div>'; // .wrap
     }
 

@@ -21,6 +21,7 @@ final class Secure_Guard_Plugin {
     private Secure_Guard_Security_Maintenance $security_maintenance;
     private Secure_Guard_Security_Events $security_events;
     private Secure_Guard_Admin_Menu $admin_menu;
+    private Secure_Guard_Docs_Page $docs_page;
 
     public function __construct() {
         $settings = Secure_Guard_Config::get_settings();
@@ -61,7 +62,8 @@ final class Secure_Guard_Plugin {
             new Secure_Guard_Tokens_Page($this->tokens, $token_manager, $settings, $this->logs),
             new Secure_Guard_Rules_Page(),
             new Secure_Guard_Logs_Page($this->logs),
-            new Secure_Guard_Blocked_IPs_Page($this->limits)
+            new Secure_Guard_Blocked_IPs_Page($this->limits),
+            new Secure_Guard_Docs_Page()
         );
     }
 

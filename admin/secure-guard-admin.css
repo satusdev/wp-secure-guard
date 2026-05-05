@@ -220,6 +220,7 @@
 	display: flex;
 	gap: 8px;
 	align-items: center;
+	flex-wrap: wrap;
 }
 
 /* =========================================================
@@ -284,6 +285,49 @@
 .secure-guard-ui .sg-expiry-label--soon {
 	color: #664d03;
 	font-weight: 600;
+}
+
+/* =========================================================
+   UI Refinements
+   ========================================================= */
+.secure-guard-ui .card {
+	box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
+	border: 1px solid #dcdcde;
+	transition: box-shadow 0.2s ease-in-out;
+}
+
+.secure-guard-ui .card:hover {
+	box-shadow: 0 4px 6px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.secure-guard-ui h1 {
+	font-weight: 700;
+	color: #1d2327;
+	margin-bottom: 24px;
+}
+
+.secure-guard-ui .button-primary {
+	background: #2271b1;
+	border-color: #2271b1;
+	box-shadow: 0 1px 0 #135e96;
+	text-shadow: none;
+	font-weight: 600;
+}
+
+.secure-guard-ui .button-primary:hover {
+	background: #135e96;
+	border-color: #135e96;
+}
+
+/* =========================================================
+   Docs Page Dashboard Card
+   ========================================================= */
+.sg-docs-dashboard h3 {
+	color: #2271b1;
+}
+
+.sg-docs-dashboard:hover {
+	border-left-color: #135e96 !important;
 }
 
 /* =========================================================

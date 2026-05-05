@@ -52,6 +52,7 @@ require_once SECURE_GUARD_DIR . 'admin/class-tokens-page.php';
 require_once SECURE_GUARD_DIR . 'admin/class-rules-page.php';
 require_once SECURE_GUARD_DIR . 'admin/class-logs-page.php';
 require_once SECURE_GUARD_DIR . 'admin/class-blocked-ips-page.php';
+require_once SECURE_GUARD_DIR . 'admin/class-docs-page.php';
 require_once SECURE_GUARD_DIR . 'includes/class-plugin.php';
 
 function secure_guard_bootstrap(): Secure_Guard_Plugin {
