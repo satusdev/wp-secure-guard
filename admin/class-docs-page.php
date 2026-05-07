@@ -5,6 +5,11 @@ if (!defined('ABSPATH')) {
 }
 
 final class Secure_Guard_Docs_Page {
+    public function register(): void {
+        // Documentation has no form handlers yet. This keeps the page contract
+        // consistent with other admin page classes.
+    }
+
     public function render(): void {
         if (!current_user_can('manage_options')) {
             wp_die(esc_html__('Unauthorized', 'secure-guard'));
@@ -16,13 +21,19 @@ final class Secure_Guard_Docs_Page {
 
             <div class="sg-docs-layout">
                 <aside class="sg-docs-sidebar">
-                    <nav class="sg-docs-nav">
+                    <nav class="sg-docs-nav" aria-label="<?php esc_attr_e('Secure Guard documentation sections', 'secure-guard'); ?>">
                         <ul>
                             <li><a href="#getting-started"><?php esc_html_e('Getting Started', 'secure-guard'); ?></a></li>
+                            <li><a href="#security-assistant"><?php esc_html_e('Security Assistant', 'secure-guard'); ?></a></li>
+                            <li><a href="#presets"><?php esc_html_e('Security Presets', 'secure-guard'); ?></a></li>
                             <li><a href="#jwt-authentication"><?php esc_html_e('JWT Authentication', 'secure-guard'); ?></a></li>
-                            <li><a href="#rest-security"><?php esc_html_e('REST API Security', 'secure-guard'); ?></a></li>
-                            <li><a href="#plugin-compatibility"><?php esc_html_e('Plugin Compatibility', 'secure-guard'); ?></a></li>
-                            <li><a href="#hardening"><?php esc_html_e('Hardening Features', 'secure-guard'); ?></a></li>
+                            <li><a href="#rest-api-security"><?php esc_html_e('REST API Security', 'secure-guard'); ?></a></li>
+                            <li><a href="#whitelists-compatibility"><?php esc_html_e('Whitelists & Compatibility', 'secure-guard'); ?></a></li>
+                            <li><a href="#login-unban-recovery"><?php esc_html_e('Login & Unban Recovery', 'secure-guard'); ?></a></li>
+                            <li><a href="#emergency-lockdown"><?php esc_html_e('Emergency Lockdown', 'secure-guard'); ?></a></li>
+                            <li><a href="#adaptive-security"><?php esc_html_e('Adaptive Security', 'secure-guard'); ?></a></li>
+                            <li><a href="#hardening"><?php esc_html_e('Hardening', 'secure-guard'); ?></a></li>
+                            <li><a href="#logs-reports"><?php esc_html_e('Logs & Reports', 'secure-guard'); ?></a></li>
                             <li><a href="#troubleshooting"><?php esc_html_e('Troubleshooting', 'secure-guard'); ?></a></li>
                         </ul>
                     </nav>
@@ -31,150 +42,89 @@ final class Secure_Guard_Docs_Page {
                 <main class="sg-docs-content">
                     <section id="getting-started" class="card">
                         <h2><?php esc_html_e('Getting Started', 'secure-guard'); ?></h2>
-                        <p><?php esc_html_e('Secure Guard is a comprehensive security plugin designed to lock down your WordPress REST API and sensitive endpoints. By default, it enforces JWT (JSON Web Token) authentication for all external REST requests.', 'secure-guard'); ?></p>
+                        <p><?php esc_html_e('Start with the Security Assistant, confirm the Balanced preset, configure JWT authentication, and add trusted infrastructure to Whitelists before enabling strict controls on a production site.', 'secure-guard'); ?></p>
                         <ol>
-                            <li><strong><?php esc_html_e('Configure JWT Secret', 'secure-guard'); ?>:</strong> <?php esc_html_e('Go to Settings > REST & JWT and ensure a strong JWT Secret is set. You can also set this via your .env file.', 'secure-guard'); ?></li>
-                            <li><strong><?php esc_html_e('Create a Token', 'secure-guard'); ?>:</strong> <?php esc_html_e('Navigate to the Tokens page to generate an API key for your external applications.', 'secure-guard'); ?></li>
-                            <li><strong><?php esc_html_e('Review Hardening', 'secure-guard'); ?>:</strong> <?php esc_html_e('Check the Hardening tab to enable additional security measures like disabling XML-RPC or hiding WordPress version info.', 'secure-guard'); ?></li>
+                            <li><?php printf(esc_html__('Open %s and review the top recommendations.', 'secure-guard'), '<a href="' . esc_url(admin_url('admin.php?page=secure-guard-assistant')) . '">' . esc_html__('Security Assistant', 'secure-guard') . '</a>'); ?></li>
+                            <li><?php printf(esc_html__('Set a stable JWT secret in %s or by environment variable.', 'secure-guard'), '<a href="' . esc_url(admin_url('admin.php?page=secure-guard-settings&tab=rest-jwt')) . '">' . esc_html__('Settings → REST & JWT', 'secure-guard') . '</a>'); ?></li>
+                            <li><?php printf(esc_html__('Add office, VPN, monitoring, and proxy addresses in %s.', 'secure-guard'), '<a href="' . esc_url(admin_url('admin.php?page=secure-guard-whitelists')) . '">' . esc_html__('Whitelists', 'secure-guard') . '</a>'); ?></li>
                         </ol>
+                    </section>
+
+                    <section id="security-assistant" class="card">
+                        <h2><?php esc_html_e('Security Assistant', 'secure-guard'); ?></h2>
+                        <p><?php esc_html_e('Security Assistant is the primary operating page. It summarizes risk, active blocks, token status, the current preset, lockdown state, and recovery actions.', 'secure-guard'); ?></p>
+                        <p><a class="button button-primary" href="<?php echo esc_url(admin_url('admin.php?page=secure-guard-assistant')); ?>"><?php esc_html_e('Open Security Assistant', 'secure-guard'); ?></a></p>
+                    </section>
+
+                    <section id="presets" class="card">
+                        <h2><?php esc_html_e('Security Presets', 'secure-guard'); ?></h2>
+                        <p><?php esc_html_e('Presets update normal Secure Guard settings. Balanced is recommended for most sites because it keeps strong REST and login protection while avoiding avoidable plugin compatibility problems.', 'secure-guard'); ?></p>
+                        <ul>
+                            <li><strong><?php esc_html_e('Beginner:', 'secure-guard'); ?></strong> <?php esc_html_e('Safer defaults for new sites and compatibility testing.', 'secure-guard'); ?></li>
+                            <li><strong><?php esc_html_e('Balanced:', 'secure-guard'); ?></strong> <?php esc_html_e('Recommended production baseline.', 'secure-guard'); ?></li>
+                            <li><strong><?php esc_html_e('Maximum Security:', 'secure-guard'); ?></strong> <?php esc_html_e('Strict controls for high-risk periods. Confirm whitelists and API clients first.', 'secure-guard'); ?></li>
+                        </ul>
                     </section>
 
                     <section id="jwt-authentication" class="card">
                         <h2><?php esc_html_e('JWT Authentication', 'secure-guard'); ?></h2>
-                        <p><?php esc_html_e('This plugin uses industry-standard JWT for secure, stateless authentication. When "JWT-Only REST Mode" is enabled, all requests to the REST API must include a valid Bearer token.', 'secure-guard'); ?></p>
-                        
-                        <h3><?php esc_html_e('How to Use Tokens', 'secure-guard'); ?></h3>
-                        <p><?php esc_html_e('Include the token in your request headers:', 'secure-guard'); ?></p>
+                        <p><?php esc_html_e('External clients authenticate with Bearer JWTs. JWT issuer, audience, and secret may be managed in settings or by environment variables for Bedrock and other deployment pipelines.', 'secure-guard'); ?></p>
                         <pre><code>Authorization: Bearer YOUR_TOKEN_HERE</code></pre>
-
-                        <h3><?php esc_html_e('Token Scopes', 'secure-guard'); ?></h3>
-                        <ul>
-                            <li><code>read_posts</code>: <?php esc_html_e('Access to read posts, pages, and custom post types.', 'secure-guard'); ?></li>
-                            <li><code>write_posts</code>: <?php esc_html_e('Permission to create and edit content.', 'secure-guard'); ?></li>
-                            <li><code>full_api_access</code>: <?php esc_html_e('Administrative access, required for sensitive endpoints.', 'secure-guard'); ?></li>
-                        </ul>
+                        <p><?php esc_html_e('If an environment variable is active, Secure Guard shows an ENV badge and preserves the stored database value as a fallback.', 'secure-guard'); ?></p>
                     </section>
 
-                    <section id="rest-security" class="card">
+                    <section id="rest-api-security" class="card">
                         <h2><?php esc_html_e('REST API Security', 'secure-guard'); ?></h2>
-                        <h3><?php esc_html_e('Strict Mode', 'secure-guard'); ?></h3>
-                        <p><?php esc_html_e('In Strict Mode, the entire REST API is hidden from unauthenticated users. Requests to /wp-json will return a 404 error instead of a 403, making it harder for attackers to even discover that an API exists.', 'secure-guard'); ?></p>
-                        
-                        <h3><?php esc_html_e('Sensitive Endpoints', 'secure-guard'); ?></h3>
-                        <p><?php esc_html_e('Endpoints like /wp/v2/users, /wp/v2/settings, and /wp/v2/plugins are automatically blocked unless the token has the "full_api_access" scope.', 'secure-guard'); ?></p>
+                        <p><?php esc_html_e('JWT-only mode protects external REST requests. Logged-in browser sessions for allowed roles remain compatible with Gutenberg, media workflows, and page builders.', 'secure-guard'); ?></p>
+                        <p><?php esc_html_e('REST Strict Mode hides unauthenticated REST discovery. Use allowed namespaces for public plugin endpoints such as contact forms.', 'secure-guard'); ?></p>
                     </section>
 
-                    <section id="plugin-compatibility" class="card">
-                        <h2><?php esc_html_e('Plugin Compatibility', 'secure-guard'); ?></h2>
-                        <p><?php esc_html_e('Some plugins (like Contact Form 7) need to use the REST API for public features (e.g., form submissions). To allow these while keeping everything else locked down:', 'secure-guard'); ?></p>
-                        <ol>
-                            <li><?php esc_html_e('Go to Settings > Compatibility.', 'secure-guard'); ?></li>
-                            <li><?php esc_html_e('Add the REST namespace for the plugin (one per line).', 'secure-guard'); ?></li>
-                            <li><?php esc_html_e('Example for Contact Form 7:', 'secure-guard'); ?> <code>contact-form-7/v1</code></li>
-                        </ol>
-                        <div class="notice notice-info inline">
-                            <p><?php esc_html_e('Whitelisting a namespace allows anonymous (public) access to those specific endpoints only.', 'secure-guard'); ?></p>
-                        </div>
+                    <section id="whitelists-compatibility" class="card">
+                        <h2><?php esc_html_e('Whitelists & Compatibility', 'secure-guard'); ?></h2>
+                        <p><?php esc_html_e('Use the Whitelists page for global IP allow rules, admin-area allow rules, trusted proxy IPs, allowed REST namespaces, and role-based bypasses.', 'secure-guard'); ?></p>
+                        <p><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=secure-guard-whitelists')); ?>"><?php esc_html_e('Open Whitelists', 'secure-guard'); ?></a></p>
+                    </section>
+
+                    <section id="login-unban-recovery" class="card">
+                        <h2><?php esc_html_e('Login & Unban Recovery', 'secure-guard'); ?></h2>
+                        <p><?php esc_html_e('Blocked IPs supports full unblocks, login-only recovery, selected bulk unblocks, and clearing all login lockouts. Full unblock clears firewall and login state. Login-only recovery preserves firewall blocks while allowing legitimate users to try again.', 'secure-guard'); ?></p>
+                        <p><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=secure-guard-blocked-ips')); ?>"><?php esc_html_e('Open Blocked IPs', 'secure-guard'); ?></a></p>
+                    </section>
+
+                    <section id="emergency-lockdown" class="card">
+                        <h2><?php esc_html_e('Emergency Lockdown', 'secure-guard'); ?></h2>
+                        <p><?php esc_html_e('Emergency lockdown temporarily returns maintenance responses for unauthenticated public requests while allowing administrators to log in and recover. The lock state is stored in both a transient and persistent option so cache restarts do not silently remove an active lockdown.', 'secure-guard'); ?></p>
+                    </section>
+
+                    <section id="adaptive-security" class="card">
+                        <h2><?php esc_html_e('Adaptive Security', 'secure-guard'); ?></h2>
+                        <p><?php esc_html_e('The reputation engine scores suspicious behavior and can throttle, challenge, block, or trigger automatic lockdown when attack velocity crosses the configured threshold.', 'secure-guard'); ?></p>
+                        <p><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=secure-guard-settings&tab=adaptive-security')); ?>"><?php esc_html_e('Open Adaptive Security Settings', 'secure-guard'); ?></a></p>
                     </section>
 
                     <section id="hardening" class="card">
-                        <h2><?php esc_html_e('Hardening Features', 'secure-guard'); ?></h2>
-                        <ul>
-                            <li><strong><?php esc_html_e('Hide WordPress Fingerprint', 'secure-guard'); ?>:</strong> <?php esc_html_e('Removes generator tags and version strings that reveal your WP version to scanners.', 'secure-guard'); ?></li>
-                            <li><strong><?php esc_html_e('Block User Enumeration', 'secure-guard'); ?>:</strong> <?php esc_html_e('Prevents bots from scanning your site to find valid usernames via author archives or REST user lookups.', 'secure-guard'); ?></li>
-                            <li><strong><?php esc_html_e('File Integrity Monitoring', 'secure-guard'); ?>:</strong> <?php esc_html_e('Scans core WordPress files for unauthorized changes and alerts you via email.', 'secure-guard'); ?></li>
-                        </ul>
+                        <h2><?php esc_html_e('Hardening', 'secure-guard'); ?></h2>
+                        <p><?php esc_html_e('Hardening options reduce WordPress fingerprinting, disable risky admin features, enforce security headers, and monitor core file integrity.', 'secure-guard'); ?></p>
+                    </section>
+
+                    <section id="logs-reports" class="card">
+                        <h2><?php esc_html_e('Logs & Reports', 'secure-guard'); ?></h2>
+                        <p><?php esc_html_e('Use Logs for individual events, IP Reputation for risk scoring, and Dashboard for summaries. CSV exports are intended for security review and incident response.', 'secure-guard'); ?></p>
+                        <p><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=secure-guard-logs')); ?>"><?php esc_html_e('Open Logs', 'secure-guard'); ?></a></p>
                     </section>
 
                     <section id="troubleshooting" class="card">
                         <h2><?php esc_html_e('Troubleshooting', 'secure-guard'); ?></h2>
-                        <h3><?php esc_html_e('"REST API requires a valid JWT token"', 'secure-guard'); ?></h3>
-                        <p><?php esc_html_e('This means your request reached the API but didn\'t have a valid token. Check your Authorization header and ensure the token hasn\'t expired.', 'secure-guard'); ?></p>
-
-                        <h3><?php esc_html_e('Gutenberg or Page Builders not working?', 'secure-guard'); ?></h3>
-                        <p><?php esc_html_e('Ensure you are logged into WordPress. Logged-in browser sessions are automatically exempt from JWT enforcement.', 'secure-guard'); ?></p>
-                        
-                        <h3><?php esc_html_e('CORS Issues', 'secure-guard'); ?></h3>
-                        <p><?php esc_html_e('If you are calling the API from a different domain, ensure your server sends the correct Access-Control-Allow-Origin headers. Secure Guard manages CSP but not CORS.', 'secure-guard'); ?></p>
-
-                        <h3><?php esc_html_e('Why did all my tokens stop working?', 'secure-guard'); ?></h3>
-                        <p><?php esc_html_e('If you changed the JWT Secret (or it was reset), all existing tokens are immediately invalidated because their signatures no longer match. You will need to reissue tokens for your callers.', 'secure-guard'); ?></p>
+                        <h3><?php esc_html_e('A real user is locked out', 'secure-guard'); ?></h3>
+                        <p><?php printf(esc_html__('Go to %s and clear login-only lockouts first. Use full unblock only when the IP should be trusted again.', 'secure-guard'), '<a href="' . esc_url(admin_url('admin.php?page=secure-guard-blocked-ips')) . '">' . esc_html__('Blocked IPs', 'secure-guard') . '</a>'); ?></p>
+                        <h3><?php esc_html_e('An API client stopped working', 'secure-guard'); ?></h3>
+                        <p><?php esc_html_e('Verify the token is active, the JWT secret/issuer/audience match the environment, and the required scope is assigned.', 'secure-guard'); ?></p>
+                        <h3><?php esc_html_e('A monitoring tool is blocked', 'secure-guard'); ?></h3>
+                        <p><?php esc_html_e('Add its source IP to the Global IP Whitelist and confirm proxy IP detection is configured if the site runs behind Cloudflare, Varnish, or a load balancer.', 'secure-guard'); ?></p>
                     </section>
                 </main>
             </div>
         </div>
-
-        <style>
-        .sg-docs-layout {
-            display: grid;
-            grid-template-columns: 240px 1fr;
-            gap: 24px;
-            align-items: start;
-            margin-top: 20px;
-        }
-        .sg-docs-sidebar {
-            position: sticky;
-            top: 50px;
-            background: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #c3c4c7;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .sg-docs-nav ul {
-            margin: 0;
-            padding: 0;
-            list-style: none;
-        }
-        .sg-docs-nav li {
-            margin-bottom: 8px;
-        }
-        .sg-docs-nav a {
-            text-decoration: none;
-            color: #1d2327;
-            font-weight: 500;
-            display: block;
-            padding: 5px 10px;
-            border-radius: 4px;
-            transition: background 0.2s;
-        }
-        .sg-docs-nav a:hover {
-            background: #f0f0f1;
-            color: #2271b1;
-        }
-        .sg-docs-content .card {
-            margin-bottom: 24px;
-            padding: 24px;
-            border-top: 4px solid #2271b1;
-        }
-        .sg-docs-content h2 {
-            margin-top: 0;
-            font-size: 20px;
-            border-bottom: 1px solid #f0f0f1;
-            padding-bottom: 12px;
-            margin-bottom: 20px;
-        }
-        .sg-docs-content h3 {
-            font-size: 16px;
-            margin-top: 24px;
-        }
-        .sg-docs-content pre {
-            background: #272822;
-            color: #f8f8f2;
-            padding: 12px;
-            border-radius: 4px;
-            overflow-x: auto;
-            font-family: monospace;
-        }
-        @media (max-width: 960px) {
-            .sg-docs-layout {
-                grid-template-columns: 1fr;
-            }
-            .sg-docs-sidebar {
-                position: static;
-            }
-        }
-        </style>
         <?php
     }
 }

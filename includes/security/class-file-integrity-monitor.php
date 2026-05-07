@@ -85,7 +85,11 @@ final class Secure_Guard_File_Integrity_Monitor {
     }
 
     private function build_file_hash_map(): array {
-        $targets = [ABSPATH . 'wp-admin', ABSPATH . 'wp-includes'];
+        $targets = [
+            ABSPATH . 'wp-admin',
+            ABSPATH . 'wp-includes',
+            $this->settings['mu_plugin_path'],
+        ];
         $hash_map = [];
 
         foreach ($targets as $target) {

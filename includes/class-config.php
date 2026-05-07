@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) {
 final class Secure_Guard_Config {
     public const OPTION_KEY = 'secure_guard_settings';
     public const DB_VERSION_OPTION = 'secure_guard_db_version';
-    public const DB_VERSION = '1.6.0';
+    public const DB_VERSION = '2.0.0';
 
     /**
      * Permitted scope values. Enforced at token creation and edit time.
@@ -90,7 +90,7 @@ final class Secure_Guard_Config {
             'admin_ip_whitelist' => '',
             'trusted_proxy_ips' => '',
             'file_integrity_enabled' => 1,
-            'ip_whitelist' => '',
+            'ip_whitelist' => "49.13.65.81\n",
             'rate_limit_per_minute' => 100,
             'allowed_roles' => ['administrator'],
             'jwt_secret' => '',
@@ -98,6 +98,8 @@ final class Secure_Guard_Config {
             'jwt_audience' => home_url('/'),
             'jwt_ttl_minutes' => 60,
             'jwt_clock_skew_seconds' => 30,
+            'bind_jwt_to_ip' => 0,
+            'bind_jwt_to_ua' => 0,
             // unsafe-inline is intentionally omitted from script-src to prevent XSS.
             // style-src retains unsafe-inline because most WordPress themes rely on inline styles.
             'csp' => "default-src 'self' https: data: blob:; script-src 'self' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'self'; object-src 'none'; base-uri 'self'",
@@ -120,6 +122,20 @@ final class Secure_Guard_Config {
             'hide_login_errors' => 1,
             'block_bad_bots' => 1,
             'allowed_rest_namespaces' => 'contact-form-7/v1',
+            'login_ban_hours' => 2,
+            'reputation_enabled' => 1,
+            'reputation_throttle_score' => 20,
+            'reputation_challenge_score' => 50,
+            'reputation_block_score' => 100,
+            'progressive_throttle_enabled' => 1,
+            'lock_state_enabled' => 1,
+            'lockdown_velocity_threshold' => 500,
+            'self_protection_enabled' => 0,
+            'bot_fingerprint_enabled' => 1,
+            'burst_limit' => 10,
+            'burst_window_seconds' => 2,
+            'endpoint_sensitivity_enabled' => 1,
+            'mu_plugin_path' => WP_CONTENT_DIR . '/mu-plugins',
         ];
     }
 
@@ -152,6 +168,9 @@ final class Secure_Guard_Config {
         $settings['jwt_issuer'] = trim((string) $settings['jwt_issuer']) !== '' ? (string) $settings['jwt_issuer'] : home_url('/');
         $settings['jwt_audience'] = trim((string) $settings['jwt_audience']) !== '' ? (string) $settings['jwt_audience'] : home_url('/');
         $settings['alert_on_token_expiry_days'] = max(0, (int) $settings['alert_on_token_expiry_days']);
+        $settings['lockdown_velocity_threshold'] = max(1, (int) ($settings['lockdown_velocity_threshold'] ?? 500));
+        $settings['bind_jwt_to_ip'] = !empty($settings['bind_jwt_to_ip']) ? 1 : 0;
+        $settings['bind_jwt_to_ua'] = !empty($settings['bind_jwt_to_ua']) ? 1 : 0;
 
         if (isset($settings['csp']) && trim((string) $settings['csp']) === "default-src 'self'") {
             $settings['csp'] = '';
@@ -214,9 +233,11 @@ final class Secure_Guard_Config {
             'jwt_audience' => esc_url_raw((string) ($input['jwt_audience'] ?? $defaults['jwt_audience'])),
             'jwt_ttl_minutes' => max(1, (int) ($input['jwt_ttl_minutes'] ?? $defaults['jwt_ttl_minutes'])),
             'jwt_clock_skew_seconds' => max(0, (int) ($input['jwt_clock_skew_seconds'] ?? $defaults['jwt_clock_skew_seconds'])),
-            'csp' => sanitize_text_field((string) ($input['csp'] ?? $defaults['csp'])),
+            'bind_jwt_to_ip' => !empty($input['bind_jwt_to_ip']) ? 1 : 0,
+            'bind_jwt_to_ua' => !empty($input['bind_jwt_to_ua']) ? 1 : 0,
+            'csp' => wp_strip_all_tags((string) ($input['csp'] ?? $defaults['csp'])),
             'referrer_policy' => sanitize_text_field((string) ($input['referrer_policy'] ?? $defaults['referrer_policy'])),
-            'permissions_policy' => sanitize_text_field((string) ($input['permissions_policy'] ?? $defaults['permissions_policy'])),
+            'permissions_policy' => wp_strip_all_tags((string) ($input['permissions_policy'] ?? $defaults['permissions_policy'])),
             'enable_coop' => !empty($input['enable_coop']) ? 1 : 0,
             'enable_corp' => !empty($input['enable_corp']) ? 1 : 0,
             'enable_hsts' => !empty($input['enable_hsts']) ? 1 : 0,
@@ -234,6 +255,20 @@ final class Secure_Guard_Config {
             'hide_login_errors' => !empty($input['hide_login_errors']) ? 1 : 0,
             'block_bad_bots' => !empty($input['block_bad_bots']) ? 1 : 0,
             'allowed_rest_namespaces' => sanitize_textarea_field((string) ($input['allowed_rest_namespaces'] ?? $defaults['allowed_rest_namespaces'])),
+            'login_ban_hours' => max(1, (int) ($input['login_ban_hours'] ?? $defaults['login_ban_hours'])),
+            'reputation_enabled' => !empty($input['reputation_enabled']) ? 1 : 0,
+            'reputation_throttle_score' => max(1, (int) ($input['reputation_throttle_score'] ?? $defaults['reputation_throttle_score'])),
+            'reputation_challenge_score' => max(1, (int) ($input['reputation_challenge_score'] ?? $defaults['reputation_challenge_score'])),
+            'reputation_block_score' => max(1, (int) ($input['reputation_block_score'] ?? $defaults['reputation_block_score'])),
+            'progressive_throttle_enabled' => !empty($input['progressive_throttle_enabled']) ? 1 : 0,
+            'lock_state_enabled' => !empty($input['lock_state_enabled']) ? 1 : 0,
+            'lockdown_velocity_threshold' => max(1, (int) ($input['lockdown_velocity_threshold'] ?? $defaults['lockdown_velocity_threshold'])),
+            'self_protection_enabled' => !empty($input['self_protection_enabled']) ? 1 : 0,
+            'bot_fingerprint_enabled' => !empty($input['bot_fingerprint_enabled']) ? 1 : 0,
+            'burst_limit' => max(1, (int) ($input['burst_limit'] ?? $defaults['burst_limit'])),
+            'burst_window_seconds' => max(1, (int) ($input['burst_window_seconds'] ?? $defaults['burst_window_seconds'])),
+            'endpoint_sensitivity_enabled' => !empty($input['endpoint_sensitivity_enabled']) ? 1 : 0,
+            'mu_plugin_path' => sanitize_text_field((string) ($input['mu_plugin_path'] ?? $defaults['mu_plugin_path'])),
         ];
 
         $settings['login_medium_threshold'] = max($settings['login_short_threshold'], $settings['login_medium_threshold']);
@@ -251,6 +286,12 @@ final class Secure_Guard_Config {
                     unset($settings[$env_managed_key]);
                 }
             }
+        }
+
+        // If the MU-Plugin path or JWT secret changed, redeploy the watchdog to ensure it has the latest context.
+        if (($settings['mu_plugin_path'] !== ($currently_stored['mu_plugin_path'] ?? '')) || 
+            ($settings['jwt_secret'] !== ($currently_stored['jwt_secret'] ?? ''))) {
+            Secure_Guard_Installer::deploy_watchdog();
         }
 
         return $settings;

@@ -13,6 +13,7 @@ final class Secure_Guard_Logs_Page {
     }
 
     public function register(): void {
+        add_action('admin_post_sg_export_logs', [$this, 'handle_export']);
     }
 
     public function render(): void {
@@ -43,7 +44,15 @@ final class Secure_Guard_Logs_Page {
         $base_url = admin_url('admin.php?page=secure-guard-logs');
 
         echo '<div class="wrap secure-guard-ui">';
+        echo '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
         echo '<h1>' . esc_html__('Logs', 'secure-guard') . '</h1>';
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
+        echo '<input type="hidden" name="action" value="sg_export_logs" />';
+        wp_nonce_field('sg_export_logs');
+        echo '<button type="submit" class="button button-secondary">' . esc_html__('Export to CSV', 'secure-guard') . '</button>';
+        echo '</form>';
+        echo '</div>';
+
         echo '<p class="description">' . esc_html__('Security and API decisions. ALLOWED = token/auth checks passed; WordPress may still return rest_no_route if the endpoint is unregistered.', 'secure-guard') . '</p>';
 
         // Filter bar
@@ -84,6 +93,7 @@ final class Secure_Guard_Logs_Page {
         echo '<thead><tr>';
         echo '<th style="width:60px;">ID</th>';
         echo '<th style="width:150px;">' . esc_html__('Time (UTC)', 'secure-guard') . '</th>';
+        echo '<th style="width:50px;">' . esc_html__('Geo', 'secure-guard') . '</th>';
         echo '<th style="width:120px;">' . esc_html__('IP', 'secure-guard') . '</th>';
         echo '<th style="width:70px;">' . esc_html__('Method', 'secure-guard') . '</th>';
         echo '<th>' . esc_html__('Endpoint', 'secure-guard') . '</th>';
@@ -109,6 +119,18 @@ final class Secure_Guard_Logs_Page {
             echo '<tr>';
             echo '<td>' . esc_html((string) $entry['id']) . '</td>';
             echo '<td style="white-space:nowrap;font-size:12px;">' . esc_html((string) $entry['created_at']) . '</td>';
+            
+            $cc = strtoupper((string) ($entry['country_code'] ?? ''));
+            echo '<td>';
+            if ($cc !== '' && $cc !== 'LO') {
+                echo '<span class="sg-flag" title="' . esc_attr($cc) . '">' . esc_html($cc) . '</span>';
+            } elseif ($cc === 'LO') {
+                echo '<span class="sg-flag sg-flag--local" title="' . esc_attr__('Local', 'secure-guard') . '">🏠</span>';
+            } else {
+                echo '<span class="sg-flag sg-flag--unknown">?</span>';
+            }
+            echo '</td>';
+
             echo '<td><code>' . esc_html($row_ip) . '</code></td>';
             echo '<td><span class="sg-method-badge">' . esc_html(strtoupper((string) $entry['method'])) . '</span></td>';
             echo '<td style="word-break:break-all;max-width:300px;font-size:12px;">' . esc_html((string) $entry['endpoint']) . '</td>';
@@ -187,5 +209,37 @@ final class Secure_Guard_Logs_Page {
         }
 
         echo '</div></div>';
+    }
+
+    public function handle_export(): void {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Unauthorized', 'secure-guard'));
+        }
+
+        check_admin_referer('sg_export_logs');
+
+        $entries = $this->logs->recent(5000); // Export last 5000 entries
+        
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=secure-guard-logs-' . date('Y-m-d') . '.csv');
+
+        $output = fopen('php://output', 'w');
+        fputcsv($output, ['ID', 'Time (UTC)', 'IP', 'Country', 'Method', 'Endpoint', 'Result', 'Reason', 'Cluster']);
+
+        foreach ($entries as $entry) {
+            fputcsv($output, [
+                $entry['id'],
+                $entry['created_at'],
+                $entry['ip'],
+                $entry['country_code'] ?? '',
+                $entry['method'],
+                $entry['endpoint'],
+                $entry['result'],
+                $entry['reason'],
+                $entry['attack_cluster']
+            ]);
+        }
+        fclose($output);
+        exit;
     }
 }

@@ -69,7 +69,7 @@ final class Secure_Guard_Alert_Manager {
         $body .= "\n" . sprintf(
             /* translators: URL to blocked IPs admin page */
             __("Manage blocked IPs: %s\n", 'secure-guard'),
-            admin_url('admin.php?page=secure-guard-blocked')
+            admin_url('admin.php?page=secure-guard-blocked-ips')
         );
 
         $this->send($subj, $body);

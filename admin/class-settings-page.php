@@ -8,11 +8,12 @@ final class Secure_Guard_Settings_Page {
     /** @var array<string,string> */
     private const TABS = [
         'rest-jwt'      => 'REST & JWT',
+        'whitelist'     => 'Whitelists',
         'login'         => 'Login Protection',
         'rate-limiting' => 'Rate Limiting',
         'headers'       => 'Security Headers',
         'hardening'     => 'Hardening',
-        'compatibility' => 'Compatibility',
+        'adaptive-security' => 'Adaptive Security',
         'alerts'        => 'Alerts',
     ];
 
@@ -59,6 +60,10 @@ final class Secure_Guard_Settings_Page {
         $settings   = Secure_Guard_Config::get_settings();
         $roles      = wp_roles()->roles;
         $active_tab = isset($_GET['tab']) ? sanitize_key((string) $_GET['tab']) : 'rest-jwt';
+        $page_slug = isset($_GET['page']) ? sanitize_key((string) $_GET['page']) : '';
+        if ($page_slug === 'secure-guard-whitelists') {
+            $active_tab = 'whitelist';
+        }
         if (!array_key_exists($active_tab, self::TABS)) {
             $active_tab = 'rest-jwt';
         }
@@ -216,7 +221,61 @@ final class Secure_Guard_Settings_Page {
                 $this->row_url_env($k, 'jwt_issuer', $s, __('JWT Issuer', 'secure-guard'), '', 'SECURE_GUARD_JWT_ISSUER');
                 $this->row_url_env($k, 'jwt_audience', $s, __('JWT Audience', 'secure-guard'), '', 'SECURE_GUARD_JWT_AUDIENCE');
                 $this->row_number($k, 'jwt_ttl_minutes', $s, __('JWT TTL (minutes)', 'secure-guard'), '', 1);
-                $this->row_number($k, 'jwt_clock_skew_seconds', $s, __('JWT Clock Skew (seconds)', 'secure-guard'), '', 0);
+                $this->row_number( $k, 'jwt_clock_skew_seconds', $s, __( 'JWT Clock Skew (seconds)', 'secure-guard' ), '', 0 );
+                ?>
+                <tr>
+                    <th><?php esc_html_e( 'Hardened Binding', 'secure-guard' ); ?></th>
+                    <td>
+                        <label style="display:block;margin-bottom:4px;">
+                            <input type="checkbox" name="<?php echo esc_attr( $k ); ?>[bind_jwt_to_ip]" value="1" <?php checked( ! empty( $s['bind_jwt_to_ip'] ), 1 ); ?> />
+                            <?php esc_html_e( 'Bind JWT to IP Address', 'secure-guard' ); ?>
+                        </label>
+                        <label style="display:block;">
+                            <input type="checkbox" name="<?php echo esc_attr( $k ); ?>[bind_jwt_to_ua]" value="1" <?php checked( ! empty( $s['bind_jwt_to_ua'] ), 1 ); ?> />
+                            <?php esc_html_e( 'Bind JWT to User-Agent', 'secure-guard' ); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'If enabled, tokens will only be valid if the request comes from the same IP/Browser that created it. Use with caution for mobile apps with shifting IPs.', 'secure-guard' ); ?></p>
+                    </td>
+                </tr>
+                <?php
+                break;
+
+            case 'whitelist':
+                echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:13px;font-weight:600;padding-top:4px;">'
+                     . esc_html__( 'Global Access Rules', 'secure-guard' ) . '</h3></th></tr>';
+
+                echo '<tr><th>' . esc_html__( 'Global IP Whitelist', 'secure-guard' ) . '</th><td>';
+                echo '<textarea rows="6" cols="60" name="' . esc_attr( $k ) . '[ip_whitelist]">'
+                     . esc_textarea( (string) $s['ip_whitelist'] ) . '</textarea>';
+                echo '<p class="description">' . esc_html__( 'One IPv4 / IPv6 / CIDR per line. These IPs bypass all rate limiting and block checks.', 'secure-guard' ) . '</p></td></tr>';
+
+                echo '<tr><th>' . esc_html__( 'Admin Area IP Whitelist', 'secure-guard' ) . '</th><td>';
+                echo '<textarea rows="4" cols="60" name="' . esc_attr( $k ) . '[admin_ip_whitelist]">'
+                     . esc_textarea( (string) $s['admin_ip_whitelist'] ) . '</textarea>';
+                echo '<p class="description">' . esc_html__( 'If set, only these IPs can access /wp-admin pages (except admin-ajax.php).', 'secure-guard' ) . '</p></td></tr>';
+
+                echo '<tr><th>' . esc_html__( 'Allowed REST Namespaces', 'secure-guard' ) . '</th><td>';
+                echo '<textarea rows="6" cols="60" name="' . esc_attr( $k ) . '[allowed_rest_namespaces]">'
+                     . esc_textarea( (string) ( $s['allowed_rest_namespaces'] ?? '' ) ) . '</textarea>';
+                echo '<p class="description">' . esc_html__( 'One REST namespace per line (e.g. contact-form-7/v1). These bypass JWT enforcement and REST Strict Mode.', 'secure-guard' ) . '</p></td></tr>';
+
+                echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:13px;font-weight:600;border-top:1px solid #dcdcde;padding-top:12px;">'
+                     . esc_html__( 'Infrastructure & Proxy', 'secure-guard' ) . '</h3></th></tr>';
+
+                echo '<tr><th>' . esc_html__( 'Trusted Proxy IPs', 'secure-guard' ) . '</th><td>';
+                echo '<textarea rows="4" cols="60" name="' . esc_attr( $k ) . '[trusted_proxy_ips]">'
+                     . esc_textarea( (string) ( $s['trusted_proxy_ips'] ?? '' ) ) . '</textarea>';
+                echo '<p class="description">' . esc_html__( 'Forwarded-For headers are trusted only when REMOTE_ADDR matches this list. Essential for Cloudflare/Varnish.', 'secure-guard' ) . '</p></td></tr>';
+
+                echo '<tr><th>' . esc_html__( 'Allowed User Roles', 'secure-guard' ) . '</th><td>';
+                foreach ( $roles as $role_key => $role ) {
+                    echo '<label style="display:block"><input type="checkbox"'
+                         . ' name="' . esc_attr( $k ) . '[allowed_roles][]"'
+                         . ' value="' . esc_attr( $role_key ) . '"'
+                         . ' ' . checked( in_array( $role_key, $s['allowed_roles'], true ), true, false ) . ' /> '
+                         . esc_html( $role['name'] ) . '</label>';
+                }
+                echo '<p class="description">' . esc_html__( 'Logged-in users with these roles always bypass JWT enforcement.', 'secure-guard' ) . '</p></td></tr>';
                 break;
 
             case 'login':
@@ -237,6 +296,11 @@ final class Secure_Guard_Settings_Page {
                 $this->row_number($k, 'login_hard_block_threshold', $s,
                     __('Hard Block Threshold', 'secure-guard'),
                     __('Triggers an extended IP-level block.', 'secure-guard'),
+                    1
+                );
+                $this->row_number($k, 'login_ban_hours', $s,
+                    __('Ban Duration (hours)', 'secure-guard'),
+                    __('How long an IP remains blocked after hitting the hard threshold.', 'secure-guard'),
                     1
                 );
                 break;
@@ -277,20 +341,6 @@ final class Secure_Guard_Settings_Page {
                     __('Block Public WP-Cron', 'secure-guard'),
                     __('Deny external HTTP access to wp-cron.php. Internal and CLI cron execution are unaffected.', 'secure-guard')
                 );
-                echo '<tr><th>' . esc_html__('Global IP Whitelist', 'secure-guard') . '</th><td>';
-                echo '<textarea rows="6" cols="60" name="' . esc_attr($k) . '[ip_whitelist]">'
-                    . esc_textarea((string) $s['ip_whitelist']) . '</textarea>';
-                echo '<p class="description">' . esc_html__('One IPv4 / IPv6 / CIDR per line. These IPs bypass all rate limiting and block checks.', 'secure-guard') . '</p></td></tr>';
-
-                echo '<tr><th>' . esc_html__('Allowed User Roles', 'secure-guard') . '</th><td>';
-                foreach ($roles as $role_key => $role) {
-                    echo '<label style="display:block"><input type="checkbox"'
-                        . ' name="' . esc_attr($k) . '[allowed_roles][]"'
-                        . ' value="' . esc_attr($role_key) . '"'
-                        . ' ' . checked(in_array($role_key, $s['allowed_roles'], true), true, false) . ' /> '
-                        . esc_html($role['name']) . '</label>';
-                }
-                echo '<p class="description">' . esc_html__('Legacy role-bypass list. Note: all logged-in users already bypass JWT enforcement regardless of this setting.', 'secure-guard') . '</p></td></tr>';
                 break;
 
             case 'headers':
@@ -343,33 +393,57 @@ final class Secure_Guard_Settings_Page {
                     __('Admin Area Protection', 'secure-guard'),
                     __('Guard /wp-admin pages from unauthenticated access. admin-ajax.php is always exempt so public AJAX handlers work.', 'secure-guard')
                 );
-                echo '<tr><th>' . esc_html__('Admin IP Whitelist', 'secure-guard') . '</th><td>';
-                echo '<textarea rows="4" cols="60" name="' . esc_attr($k) . '[admin_ip_whitelist]">'
-                    . esc_textarea((string) $s['admin_ip_whitelist']) . '</textarea>';
-                echo '<p class="description">' . esc_html__('Optional. If set, only these IPs can access /wp-admin pages.', 'secure-guard') . '</p></td></tr>';
-                echo '<tr><th>' . esc_html__('Trusted Proxy IPs', 'secure-guard') . '</th><td>';
-                echo '<textarea rows="4" cols="60" name="' . esc_attr($k) . '[trusted_proxy_ips]">'
-                    . esc_textarea((string) ($s['trusted_proxy_ips'] ?? '')) . '</textarea>';
-                echo '<p class="description">' . esc_html__('Forwarded-For headers are trusted only when REMOTE_ADDR matches this list.', 'secure-guard') . '</p></td></tr>';
                 $this->row_number($k, 'log_retention_days', $s,
                     __('Log Retention (days)', 'secure-guard'),
                     __('Log entries older than this are automatically purged by the scheduled maintenance task.', 'secure-guard'),
                     1
                 );
+                $this->row_checkbox($k, 'self_protection_enabled', $s,
+                    __('Self-Protection', 'secure-guard'),
+                    __('Prevent accidental or malicious deactivation of the Secure Guard plugin via the WordPress admin.', 'secure-guard')
+                );
+                $this->row_text($k, 'mu_plugin_path', $s,
+                    __('MU-Plugin Path', 'secure-guard'),
+                    __('Full system path to the mu-plugins directory. Leave empty for default.', 'secure-guard')
+                );
                 break;
-            case 'compatibility':
-                echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:13px;font-weight:600;border-top:1px solid #dcdcde;padding-top:12px;">'
-                    . esc_html__('REST API Plugin Compatibility', 'secure-guard') . '</h3></th></tr>';
-                echo '<tr><th>' . esc_html__('Allowed REST Namespaces', 'secure-guard') . '</th><td>';
-                echo '<textarea rows="6" cols="60" name="' . esc_attr($k) . '[allowed_rest_namespaces]">'
-                    . esc_textarea((string) ($s['allowed_rest_namespaces'] ?? '')) . '</textarea>';
-                echo '<p class="description">' . esc_html__('One REST namespace per line (e.g. contact-form-7/v1). These bypass JWT enforcement and REST Strict Mode.', 'secure-guard') . '</p>';
-                echo '<div class="notice notice-info inline" style="margin:8px 0 0;"><p>'
-                    . esc_html__('Matches are precise: "my-plugin/v1" matches "/my-plugin/v1" and "/my-plugin/v1/data", but not "/my-plugin/v1-extra".', 'secure-guard')
-                    . '</p></div>';
-                echo '<div class="notice notice-warning inline" style="margin:8px 0 0;"><p>'
-                    . esc_html__('Whitelisting a namespace allows anonymous access to those endpoints. Only add trusted plugins.', 'secure-guard')
-                    . '</p></div></td></tr>';
+            case 'adaptive-security':
+                $this->row_checkbox($k, 'reputation_enabled', $s,
+                    __('Reputation Engine', 'secure-guard'),
+                    __('Enable behavioral reputation tracking for all visitors.', 'secure-guard')
+                );
+                $this->row_number($k, 'reputation_block_score', $s,
+                    __('Block Threshold', 'secure-guard'),
+                    __('Score (0-100) at which an IP is hard-blocked.', 'secure-guard'),
+                    1
+                );
+                $this->row_number($k, 'reputation_throttle_score', $s,
+                    __('Throttle Threshold', 'secure-guard'),
+                    __('Score at which an IP enters the Throttled tier.', 'secure-guard'),
+                    1
+                );
+                $this->row_number($k, 'reputation_challenge_score', $s,
+                    __('Challenge Threshold', 'secure-guard'),
+                    __('Score at which an IP enters the Challenged tier.', 'secure-guard'),
+                    1
+                );
+                $this->row_checkbox($k, 'bot_fingerprint_enabled', $s,
+                    __('Behavioral Bot Fingerprinting', 'secure-guard'),
+                    __('Analyze headers and patterns to detect headless browsers and scrapers.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'progressive_throttle_enabled', $s,
+                    __('Progressive Response', 'secure-guard'),
+                    __('Inject artificial delays into high-risk requests to slow down scanners.', 'secure-guard')
+                );
+                $this->row_checkbox($k, 'lock_state_enabled', $s,
+                    __('Lockdown System', 'secure-guard'),
+                    __('Enable the manual/automatic lockdown engine.', 'secure-guard')
+                );
+                $this->row_number($k, 'lockdown_velocity_threshold', $s,
+                    __('Automatic Lockdown Velocity Threshold', 'secure-guard'),
+                    __('Reputation points accumulated in a short window before automatic emergency lockdown is engaged.', 'secure-guard'),
+                    1
+                );
                 break;
             case 'alerts':
                 $this->row_checkbox($k, 'email_alerts_enabled', $s,

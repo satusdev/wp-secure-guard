@@ -29,6 +29,9 @@ final class Secure_Guard_Security_Maintenance {
         if (!wp_next_scheduled('secure_guard_token_expiry_check')) {
             wp_schedule_event(time() + 2 * HOUR_IN_SECONDS, 'daily', 'secure_guard_token_expiry_check');
         }
+        if (!wp_next_scheduled('secure_guard_reputation_decay')) {
+            wp_schedule_event(time() + 3 * HOUR_IN_SECONDS, 'daily', 'secure_guard_reputation_decay');
+        }
     }
 
     public function purge_logs(): void {

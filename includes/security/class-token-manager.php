@@ -93,6 +93,14 @@ final class Secure_Guard_Token_Manager {
             'tid' => (int) $token_row['id'],
         ];
 
+        if (!empty($this->settings['bind_jwt_to_ip'])) {
+            $claims['ip'] = (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+        }
+
+        if (!empty($this->settings['bind_jwt_to_ua'])) {
+            $claims['ua'] = substr(md5((string) ($_SERVER['HTTP_USER_AGENT'] ?? '')), 0, 16);
+        }
+
         $kid = sanitize_text_field((string) ($token_row['kid'] ?? 'default'));
 
         return JWT::encode($claims, $secret, 'HS256', $kid);
@@ -127,6 +135,19 @@ final class Secure_Guard_Token_Manager {
         $audience_claim = $claims['aud'] ?? '';
         if (!$this->audience_matches($audience_claim, $expected_audience)) {
             return null;
+        }
+
+        if (isset($claims['ip']) && !empty($this->settings['bind_jwt_to_ip'])) {
+            if (!hash_equals((string) $claims['ip'], (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'))) {
+                return null;
+            }
+        }
+
+        if (isset($claims['ua']) && !empty($this->settings['bind_jwt_to_ua'])) {
+            $current_ua = substr(md5((string) ($_SERVER['HTTP_USER_AGENT'] ?? '')), 0, 16);
+            if (!hash_equals((string) $claims['ua'], $current_ua)) {
+                return null;
+            }
         }
 
         $token_id = isset($claims['tid']) ? (int) $claims['tid'] : 0;

@@ -26,6 +26,7 @@ final class Secure_Guard_Tokens_Page {
         add_action('admin_post_secure_guard_delete_token',  [$this, 'handle_delete']);
         add_action('admin_post_secure_guard_reissue_token', [$this, 'handle_reissue']);
         add_action('admin_post_secure_guard_edit_token',    [$this, 'handle_edit']);
+        add_action('admin_post_sg_export_tokens', [$this, 'handle_export']);
     }
 
     public function handle_create(): void {
@@ -260,7 +261,14 @@ final class Secure_Guard_Tokens_Page {
         $hide_url = add_query_arg(['page' => 'secure-guard-tokens'], admin_url('admin.php'));
         ?>
         <div class="wrap secure-guard-ui">
-            <h1><?php echo esc_html__('Tokens', 'secure-guard'); ?></h1>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <h1><?php echo esc_html__('Tokens', 'secure-guard'); ?></h1>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="sg_export_tokens" />
+                    <?php wp_nonce_field('sg_export_tokens'); ?>
+                    <button type="submit" class="button button-secondary"><?php echo esc_html__('Export to CSV', 'secure-guard'); ?></button>
+                </form>
+            </div>
             <p class="description"><?php echo esc_html__('JWT token values are hidden by default. You can reveal recently generated tokens on demand for a short time.', 'secure-guard'); ?></p>
             <div class="notice notice-info"><p><?php echo esc_html__('Logged-in WordPress users (Gutenberg, page builders, media library) bypass JWT enforcement automatically. JWT tokens are for external programmatic API callers that send Authorization: Bearer TOKEN.', 'secure-guard'); ?></p></div>
 
@@ -595,5 +603,43 @@ final class Secure_Guard_Tokens_Page {
 
         unset($tokens[$token_id]);
         set_transient($this->recent_tokens_transient_key(), $tokens, self::RECENT_TOKENS_TTL);
+    }
+
+    public function handle_export(): void {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Unauthorized', 'secure-guard'));
+        }
+
+        check_admin_referer('sg_export_tokens');
+
+        $tokens = $this->tokens->all_tokens(1000, 0); // Export up to 1000 tokens
+        
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=secure-guard-tokens-' . date('Y-m-d') . '.csv');
+
+        $output = fopen('php://output', 'w');
+        fputcsv($output, ['ID', 'Name', 'Type', 'Scope', 'Allowed Endpoints', 'Allowed IPs', 'Rate Limit', 'Expires', 'Last Used', 'Created', 'Status']);
+
+        foreach ($tokens as $token) {
+            $is_active = empty($token['revoked_at']);
+            $is_expired = $is_active && !empty($token['expires_at']) && strtotime((string) $token['expires_at']) < time();
+            $status = $is_expired ? 'Expired' : ($is_active ? 'Active' : 'Revoked');
+
+            fputcsv($output, [
+                $token['id'],
+                $token['name'],
+                $token['token_type'],
+                $token['scope'],
+                $token['allowed_endpoints'],
+                $token['allowed_ips'],
+                $token['rate_limit_per_minute'] ?? 'None',
+                $token['expires_at'] ?? 'Never',
+                $token['last_used_at'] ?? 'Never',
+                $token['created_at'],
+                $status
+            ]);
+        }
+        fclose($output);
+        exit;
     }
 }

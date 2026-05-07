@@ -15,45 +15,63 @@ final class Secure_Guard_Rate_Limit {
 
     public function allow(string $subject, ?int $token_limit = null): bool {
         $limit = $token_limit && $token_limit > 0 ? $token_limit : (int) ($this->settings['rate_limit_per_minute'] ?? 100);
-        return $this->allow_with_policy($subject, $limit, 60, 60);
+        $burst_limit = (int) ($this->settings['burst_limit'] ?? 10);
+        $burst_window = (int) ($this->settings['burst_window_seconds'] ?? 2);
+
+        return $this->allow_sliding($subject, $limit, 60, $burst_limit, $burst_window);
     }
 
-    public function allow_with_policy(string $subject, int $limit, int $window_seconds, int $block_seconds): bool {
-        // Transient-backed sliding window — zero DB queries per check when using a
-        // persistent object cache (Redis/Memcached); one option-table read otherwise,
-        // still far cheaper than the previous SELECT + UPDATE pair per request.
-        $key  = 'sg_rl_' . substr(md5($subject), 0, 20);
-        $now  = time();
-        $ttl  = max($window_seconds, $block_seconds) + 60;
+    /**
+     * Sliding window rate limiting with burst control.
+     * Uses a transient-backed array of timestamps.
+     */
+    public function allow_sliding(string $subject, int $limit, int $window_seconds, int $burst_limit, int $burst_window): bool {
+        $key = 'sg_rl_sw_' . substr(md5($subject), 0, 20);
+        $now = microtime(true);
+        $ttl = $window_seconds + 60;
 
-        $current = get_transient($key);
-
-        if (!is_array($current)) {
-            set_transient($key, ['s' => $now, 'h' => 1, 'b' => 0], $ttl);
-            return true;
+        $history = get_transient($key);
+        if (!is_array($history)) {
+            $history = [];
         }
 
-        $blocked_until = (int) ($current['b'] ?? 0);
-        if ($blocked_until > $now) {
+        // Evict expired entries from main window
+        $history = array_values(array_filter($history, function($ts) use ($now, $window_seconds) {
+            return $ts > ($now - $window_seconds);
+        }));
+
+        // Check burst limit
+        $recent_count = 0;
+        foreach ($history as $ts) {
+            if ($ts > ($now - $burst_window)) {
+                $recent_count++;
+            }
+        }
+
+        if ($recent_count >= $burst_limit) {
             return false;
         }
 
-        $started_at = (int) ($current['s'] ?? 0);
-        $hit_count  = (int) ($current['h'] ?? 0);
-
-        if ($started_at < ($now - $window_seconds)) {
-            // Window expired — start a fresh window.
-            set_transient($key, ['s' => $now, 'h' => 1, 'b' => 0], $ttl);
-            return true;
-        }
-
-        $hit_count++;
-        if ($hit_count > $limit) {
-            set_transient($key, ['s' => $started_at, 'h' => $hit_count, 'b' => $now + max(1, $block_seconds)], $block_seconds + 60);
+        // Check main window limit
+        if (count($history) >= $limit) {
             return false;
         }
 
-        set_transient($key, ['s' => $started_at, 'h' => $hit_count, 'b' => 0], $ttl);
+        // Add current hit
+        $history[] = $now;
+        set_transient($key, $history, $ttl);
+
         return true;
+    }
+
+    /**
+     * Legacy support for fixed policy if needed, but redirects to sliding.
+     */
+    public function allow_with_policy(string $subject, int $limit, int $window_seconds, int $block_seconds): bool {
+        // For simple traffic firewall checks, we use sliding window with default burst.
+        $burst_limit = (int) ($this->settings['burst_limit'] ?? 10);
+        $burst_window = (int) ($this->settings['burst_window_seconds'] ?? 2);
+        
+        return $this->allow_sliding($subject, $limit, $window_seconds, $burst_limit, $burst_window);
     }
 }

@@ -11,6 +11,11 @@ final class Secure_Guard_Traffic_Firewall {
     private Secure_Guard_Rate_Limit_Repository $limits;
     private Secure_Guard_IP_Whitelist $ip_whitelist;
     private ?Secure_Guard_Alert_Manager $alert_manager;
+    private Secure_Guard_Lock_State $lock_state;
+    private Secure_Guard_Bot_Fingerprint $bot_fingerprint;
+    private Secure_Guard_Progressive_Throttle $progressive_throttle;
+    private Secure_Guard_Reputation_Engine $reputation_engine;
+    private Secure_Guard_Endpoint_Sensitivity $sensitivity;
 
     public function __construct(
         array $settings,
@@ -18,6 +23,11 @@ final class Secure_Guard_Traffic_Firewall {
         Secure_Guard_Rate_Limit $rate_limit,
         Secure_Guard_Rate_Limit_Repository $limits,
         Secure_Guard_IP_Whitelist $ip_whitelist,
+        Secure_Guard_Reputation_Engine $reputation_engine,
+        Secure_Guard_Endpoint_Sensitivity $sensitivity,
+        Secure_Guard_Lock_State $lock_state,
+        Secure_Guard_Bot_Fingerprint $bot_fingerprint,
+        Secure_Guard_Progressive_Throttle $progressive_throttle,
         ?Secure_Guard_Alert_Manager $alert_manager = null
     ) {
         $this->settings = $settings;
@@ -25,22 +35,48 @@ final class Secure_Guard_Traffic_Firewall {
         $this->rate_limit = $rate_limit;
         $this->limits = $limits;
         $this->ip_whitelist = $ip_whitelist;
+        $this->reputation_engine = $reputation_engine;
+        $this->sensitivity = $sensitivity;
+        $this->lock_state = $lock_state;
+        $this->bot_fingerprint = $bot_fingerprint;
+        $this->progressive_throttle = $progressive_throttle;
         $this->alert_manager = $alert_manager;
     }
 
     public function handle_request(): void {
         $ip = $this->ip_whitelist->get_request_ip();
+        $tier = $this->reputation_engine->get_tier($ip);
+
+        // Apply progressive throttle (artificial delay) based on reputation
+        $this->progressive_throttle->apply($tier);
+
+        if ($tier === Secure_Guard_Reputation_Engine::TIER_BLOCKED) {
+            $this->deny_request('IP blocked by reputation', 403, $ip);
+        }
+
+        if ($this->lock_state->is_locked()) {
+            $request_uri = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? '/'));
+            if (!$this->lock_state->is_route_allowed_in_lockdown($request_uri)) {
+                $this->deny_request('System in lockdown', 503, $ip);
+            }
+        }
 
         if ($this->is_public_wp_cron_request()) {
+            $this->reputation_engine->add_score($ip, 5, 'Public wp-cron access');
             $this->deny_request('Public wp-cron blocked', 403, $ip);
         }
 
         if ($this->is_sensitive_path_request()) {
+            $this->reputation_engine->add_score($ip, 10, 'Sensitive path access attempt');
             $this->deny_request('Sensitive path blocked', 403, $ip);
         }
 
-        if ($this->is_bad_bot()) {
-            $this->deny_request('Malicious User-Agent blocked', 403, $ip);
+        $bot_score = $this->bot_fingerprint->analyze();
+        if ($bot_score >= 60 || ($bot_score > 0 && $this->is_bad_bot())) {
+            $this->reputation_engine->add_score($ip, $bot_score ?: 20, 'Bot detected (score: ' . $bot_score . ')');
+            if ($bot_score >= 60) {
+                 $this->deny_request('Malicious bot behavior blocked', 403, $ip);
+            }
         }
 
         if ($this->ip_whitelist->is_allowed($ip)) {
@@ -51,9 +87,9 @@ final class Secure_Guard_Traffic_Firewall {
             $this->deny_request('IP is blocked', 403, $ip);
         }
 
-        // IDS: reject common injection and probing patterns for unauthenticated requests.
-        // Skipped for logged-in users, WP-CLI, DOING_AJAX, DOING_CRON, and REST requests.
+        // IDS: reject common injection and probing patterns
         if (!$this->should_skip_throttle() && $this->is_malicious_request()) {
+            $this->reputation_engine->add_score($ip, 50, 'Malicious request pattern');
             $this->deny_request('Malicious request pattern detected', 403, $ip);
         }
 
@@ -66,10 +102,19 @@ final class Secure_Guard_Traffic_Firewall {
         }
 
         $limit = (int) ($this->settings['bot_rate_limit_per_minute'] ?? 60);
+        
+        // Stricter limits for lower reputation
+        if ($tier === Secure_Guard_Reputation_Engine::TIER_CHALLENGED) {
+            $limit = max(1, (int) ($limit / 4));
+        } elseif ($tier === Secure_Guard_Reputation_Engine::TIER_THROTTLED) {
+            $limit = max(1, (int) ($limit / 2));
+        }
+
         $block_seconds = max(60, (int) ($this->settings['bot_block_minutes'] ?? 15) * MINUTE_IN_SECONDS);
 
         $subject = 'traffic:' . $ip;
-        if (!$this->rate_limit->allow_with_policy($subject, $limit, 60, $block_seconds)) {
+        if (!$this->rate_limit->allow($subject, $limit)) {
+            $this->reputation_engine->add_score($ip, 10, 'Traffic rate limit exceeded');
             $this->apply_global_block($ip, $block_seconds, 'Bot rate limit exceeded');
             $this->deny_request('Bot rate limit exceeded', 429, $ip);
         }
@@ -96,6 +141,17 @@ final class Secure_Guard_Traffic_Firewall {
             $endpoint = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? '/'));
             $method = sanitize_text_field((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
             $this->logs->log($endpoint, $method, 'BLOCKED', 'Too many 404 scans', ['ip' => $ip, 'count' => $count]);
+        }
+    }
+
+    public function enforce_parse_request(): void {
+        $this->handle_request();
+    }
+
+    public function enforce_wp_loaded(): void {
+        if ($this->lock_state->is_locked() && !is_admin() && !is_user_logged_in()) {
+             $ip = $this->ip_whitelist->get_request_ip();
+             $this->deny_request('Emergency lockdown enforcement', 503, $ip);
         }
     }
 
@@ -152,6 +208,9 @@ final class Secure_Guard_Traffic_Firewall {
         if ($this->alert_manager !== null) {
             $this->alert_manager->notify_ip_blocked($ip, $reason, $expires_at);
         }
+
+        // Invalidate dashboard stats so the blocked IP count updates immediately.
+        delete_transient('sg_dashboard_stats');
     }
 
     private function deny_request(string $reason, int $status, string $ip): void {

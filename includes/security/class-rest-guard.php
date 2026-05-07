@@ -11,6 +11,9 @@ final class Secure_Guard_REST_Guard {
     private Secure_Guard_IP_Whitelist $ip_whitelist;
     private Secure_Guard_Rate_Limit $rate_limit;
     private Secure_Guard_Endpoint_Blocker $endpoint_blocker;
+    private Secure_Guard_Reputation_Engine $reputation_engine;
+    private Secure_Guard_Endpoint_Sensitivity $sensitivity;
+    private Secure_Guard_Lock_State $lock_state;
 
     public function __construct(
         array $settings,
@@ -18,7 +21,10 @@ final class Secure_Guard_REST_Guard {
         Secure_Guard_Token_Manager $token_manager,
         Secure_Guard_IP_Whitelist $ip_whitelist,
         Secure_Guard_Rate_Limit $rate_limit,
-        Secure_Guard_Endpoint_Blocker $endpoint_blocker
+        Secure_Guard_Endpoint_Blocker $endpoint_blocker,
+        Secure_Guard_Reputation_Engine $reputation_engine,
+        Secure_Guard_Endpoint_Sensitivity $sensitivity,
+        Secure_Guard_Lock_State $lock_state
     ) {
         $this->settings = $settings;
         $this->logs = $logs;
@@ -26,6 +32,9 @@ final class Secure_Guard_REST_Guard {
         $this->ip_whitelist = $ip_whitelist;
         $this->rate_limit = $rate_limit;
         $this->endpoint_blocker = $endpoint_blocker;
+        $this->reputation_engine = $reputation_engine;
+        $this->sensitivity = $sensitivity;
+        $this->lock_state = $lock_state;
     }
 
     public function authenticate($result) {
@@ -33,6 +42,7 @@ final class Secure_Guard_REST_Guard {
         $method = sanitize_text_field((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
         $route = $this->extract_route($request_uri);
         $ip = $this->ip_whitelist->get_request_ip();
+        $ua = sanitize_text_field((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
         $token = $this->token_manager->extract_bearer_token();
         $token_row = null;
 
@@ -44,26 +54,39 @@ final class Secure_Guard_REST_Guard {
             return $result;
         }
 
-        // Logged-in browser sessions use WP cookie auth — bypass JWT enforcement so
-        // Gutenberg, Elementor, Divi, and the media library all work normally.
+        // Reputation check - Block if IP is in BLOCKED tier
+        if ($this->reputation_engine->get_tier($ip) === Secure_Guard_Reputation_Engine::TIER_BLOCKED) {
+            $this->logs->log($route, $method, 'BLOCKED', 'IP blocked by reputation', ['ip' => $ip]);
+            return new WP_Error('secure_guard_reputation_blocked', __('Access denied by security engine.', 'secure-guard'), ['status' => 403]);
+        }
+
+        // Logged-in browser sessions use WP cookie auth — bypass JWT enforcement
         if (is_user_logged_in()) {
             return $result;
         }
 
-        // Bypass JWT check for whitelisted plugin namespaces (e.g. Contact Form 7).
+        // Bypass JWT check for whitelisted plugin namespaces
         if ($this->is_namespace_allowed($route)) {
             return $result;
         }
 
         $token_row = $this->token_manager->validate_token($token);
         if (!$token_row) {
+            $this->reputation_engine->add_score($ip, 5, 'Invalid JWT attempt');
             $this->logs->log($route, $method, 'BLOCKED', 'Missing or invalid JWT token', ['ip' => $ip]);
             return new WP_Error('secure_guard_invalid_token', __('REST API requires a valid JWT token.', 'secure-guard'), ['status' => 403]);
+        }
+
+        // Sensitivity scoring and reputation feed
+        $weight = $this->sensitivity->get_weight($route);
+        if ($weight > 1) {
+            $this->reputation_engine->add_score($ip, (int) ($weight / 2), 'Sensitive endpoint hit');
         }
 
         if ($this->endpoint_blocker->should_block_sensitive_endpoints() && $this->endpoint_blocker->is_sensitive_route($route)) {
             $is_admin_scope = in_array('full_api_access', $this->token_manager->get_token_scopes($token_row), true);
             if (!$is_admin_scope) {
+                $this->reputation_engine->add_score($ip, 10, 'Sensitive endpoint unauthorized access attempt');
                 $this->logs->log($route, $method, 'BLOCKED', 'Sensitive endpoint blocked for JWT scope', ['token_id' => $token_row['id'] ?? 0, 'ip' => $ip]);
                 return new WP_Error('secure_guard_sensitive_blocked', __('Endpoint blocked.', 'secure-guard'), ['status' => 403]);
             }
@@ -79,12 +102,39 @@ final class Secure_Guard_REST_Guard {
             return new WP_Error('secure_guard_ip_forbidden', __('IP is not allowed.', 'secure-guard'), ['status' => 403]);
         }
 
-        $subject = 'token:' . (int) ($token_row['id'] ?? 0);
-        $token_limit = isset($token_row['rate_limit_per_minute']) ? (int) $token_row['rate_limit_per_minute'] : null;
-        if (!$this->rate_limit->allow($subject, $token_limit)) {
-            $this->logs->log($route, $method, 'BLOCKED', 'Rate limit exceeded', ['token_id' => $token_row['id'] ?? 0, 'ip' => $ip]);
-            return new WP_Error('secure_guard_rate_limit', __('Rate limit exceeded.', 'secure-guard'), ['status' => 429]);
+        // Multi-dimensional rate limiting
+        $token_id = (int) ($token_row['id'] ?? 0);
+        $token_limit = isset($token_row['rate_limit_per_minute']) ? (int) $token_row['rate_limit_per_minute'] : (int) ($this->settings['rate_limit_per_minute'] ?? 100);
+        
+        // Scale limit based on endpoint sensitivity
+        $multiplier = $this->sensitivity->get_limit_multiplier($route);
+        $scaled_limit = max(1, (int) ($token_limit * $multiplier));
+
+        // Adaptive Scaling: Reduce limit based on reputation tier
+        $rep_tier = $this->reputation_engine->get_tier($ip);
+        if ($rep_tier === Secure_Guard_Reputation_Engine::TIER_CHALLENGED) {
+            $scaled_limit = max(1, (int) ($scaled_limit * 0.5));
+        } elseif ($rep_tier === Secure_Guard_Reputation_Engine::TIER_THROTTLED) {
+            $scaled_limit = max(1, (int) ($scaled_limit * 0.2));
         }
+
+        $subjects = [
+            'token:' . $token_id,                    // Dimension 1: Token
+            'ip:' . $ip,                            // Dimension 2: IP
+            'ip_endpoint:' . md5($ip . ':' . $route), // Dimension 3: IP + Endpoint
+            'ip_ua:' . md5($ip . ':' . $ua),        // Dimension 4: IP + UA
+        ];
+
+        foreach ($subjects as $subject) {
+            if (!$this->rate_limit->allow($subject, $scaled_limit)) {
+                $this->reputation_engine->add_score($ip, 5, 'Rate limit exceeded (' . $subject . ')');
+                $this->logs->log($route, $method, 'BLOCKED', 'Rate limit exceeded: ' . $subject, ['token_id' => $token_id, 'ip' => $ip]);
+                return new WP_Error('secure_guard_rate_limit', __('Rate limit exceeded.', 'secure-guard'), ['status' => 429]);
+            }
+        }
+
+        // Logged-in user reputation bonus
+        $this->reputation_engine->add_score($ip, 1, 'Normal request');
 
         // touch_last_used is already handled inside validate_token().
         // Only log ALLOWED events when explicitly enabled (reduces DB write pressure).
@@ -97,6 +147,11 @@ final class Secure_Guard_REST_Guard {
 
     public function pre_dispatch($response, WP_REST_Server $server, WP_REST_Request $request) {
         $route = (string) $request->get_route();
+        
+        if ($this->lock_state->is_locked() && !$this->lock_state->is_route_allowed_in_lockdown($route)) {
+            return new WP_Error('secure_guard_locked', __('System is in emergency lockdown mode.', 'secure-guard'), ['status' => 503]);
+        }
+
         if ($route === '') {
             return $response;
         }
@@ -110,6 +165,30 @@ final class Secure_Guard_REST_Guard {
         }
 
         return $response;
+    }
+
+    public function final_gate($response, WP_REST_Server $server, WP_REST_Request $request) {
+        // Final gatekeeper logic - could re-verify auth or state
+        if ($this->lock_state->is_locked() && !is_user_logged_in()) {
+             return new WP_Error('secure_guard_locked_final', __('Access denied.', 'secure-guard'), ['status' => 403]);
+        }
+        return $response;
+    }
+
+    public function register_routes(): void {
+        register_rest_route('secure-guard/v1', '/status', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'get_status'],
+            'permission_callback' => '__return_true', // Enforced by authenticate() filter
+        ]);
+    }
+
+    public function get_status(): WP_REST_Response {
+        return new WP_REST_Response([
+            'status'  => 'active',
+            'version' => SECURE_GUARD_VERSION,
+            'lockdown' => $this->lock_state->is_locked(),
+        ]);
     }
 
     private function is_rest_request(string $request_uri, string $route): bool {

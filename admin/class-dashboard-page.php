@@ -42,6 +42,7 @@ final class Secure_Guard_Dashboard_Page {
                 'failed_logins' => $this->logs->count_by_reason('Failed login'),
                 'api_requests'  => $this->logs->count_endpoint_prefix('/wp-json'),
                 'active_tokens' => $this->tokens->count_active(),
+                'clusters'      => $this->logs->get_cluster_summary(24),
                 '_cached_at'    => time(),
             ];
             set_transient('sg_dashboard_stats', $stats, 5 * MINUTE_IN_SECONDS);
@@ -54,11 +55,22 @@ final class Secure_Guard_Dashboard_Page {
         $cached_at        = (int) ($stats['_cached_at'] ?? 0);
         $integrity_alerts     = (int) get_transient('secure_guard_integrity_alert_count');
         $users_endpoint_ready = $this->users_collection_endpoint_available();
+        $settings        = Secure_Guard_Config::get_settings();
+        $preset_label    = Secure_Guard_Security_Presets::label(Secure_Guard_Security_Presets::detect($settings));
+        $lock_data       = get_transient('sg_lock_state');
+        if (!is_array($lock_data)) {
+            $lock_data = get_option('secure_guard_lock_state', []);
+        }
+        if (is_array($lock_data) && isset($lock_data['expires']) && (int) $lock_data['expires'] <= time()) {
+            $lock_data = [];
+        }
         $tokens_url      = admin_url('admin.php?page=secure-guard-tokens');
+        $assistant_url   = admin_url('admin.php?page=secure-guard-assistant');
         $logs_url        = admin_url('admin.php?page=secure-guard-logs');
         $settings_url    = admin_url('admin.php?page=secure-guard-settings');
         $rules_url       = admin_url('admin.php?page=secure-guard-rules');
-        $blocked_ips_url = admin_url('admin.php?page=secure-guard-blocked');
+        $blocked_ips_url = admin_url('admin.php?page=secure-guard-blocked-ips');
+        $whitelists_url  = admin_url('admin.php?page=secure-guard-whitelists');
         $refresh_url     = wp_nonce_url(admin_url('admin-post.php?action=sg_refresh_dashboard_stats'), 'sg_refresh_dashboard_stats');
 
         $cached_label = '';
@@ -76,10 +88,12 @@ final class Secure_Guard_Dashboard_Page {
 
         // ── top action row ──────────────────────────────────────────────
         echo '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">';
+        echo '<a class="button button-primary" href="' . esc_url($assistant_url) . '">' . esc_html__('Security Assistant', 'secure-guard') . '</a>';
         echo '<a class="button button-primary" href="' . esc_url($tokens_url) . '">' . esc_html__('Manage Tokens', 'secure-guard') . '</a>';
         echo '<a class="button" href="' . esc_url($logs_url) . '">' . esc_html__('View Logs', 'secure-guard') . '</a>';
         echo '<a class="button" href="' . esc_url($blocked_ips_url) . '">' . esc_html__('Blocked IPs', 'secure-guard') . '</a>';
-        echo '<a class="button" href="' . esc_url($rules_url) . '">' . esc_html__('Rules', 'secure-guard') . '</a>';
+        echo '<a class="button" href="' . esc_url($whitelists_url) . '">' . esc_html__('Whitelists', 'secure-guard') . '</a>';
+        echo '<a class="button" href="' . esc_url($rules_url) . '">' . esc_html__('Security Rules', 'secure-guard') . '</a>';
         echo '<a class="button" href="' . esc_url($settings_url) . '">' . esc_html__('Settings', 'secure-guard') . '</a>';
         if ($cached_label !== '') {
             echo '<span style="color:#646970;font-size:12px;margin-left:auto;">' . esc_html($cached_label) . ' &mdash; <a href="' . esc_url($refresh_url) . '">' . esc_html__('Refresh now', 'secure-guard') . '</a></span>';
@@ -112,7 +126,7 @@ final class Secure_Guard_Dashboard_Page {
         echo '<div class="sg-metric-card">';
         echo '<div class="sg-metric-card__header"><span class="dashicons dashicons-rest-api"></span> ' . esc_html__('API Requests Logged', 'secure-guard') . '</div>';
         echo '<div class="sg-metric-card__number">' . esc_html((string) $api_requests) . '</div>';
-        echo '<div class="sg-metric-card__sub"><a href="' . esc_url($logs_url) . '">' . esc_html__('Browse logs', 'secure-guard') . '</a></div>';
+        echo '<div class="sg-metric-card__sub"><a href="' . esc_url($logs_url) . '">' . esc_html__('Allowed and blocked /wp-json events in retained logs', 'secure-guard') . '</a></div>';
         echo '</div>';
 
         // Active Tokens
@@ -138,7 +152,35 @@ final class Secure_Guard_Dashboard_Page {
         echo '<div class="sg-metric-card__sub">' . esc_html__('UTC', 'secure-guard') . '</div>';
         echo '</div>';
 
+        echo '<div class="sg-metric-card sg-metric-card--ok">';
+        echo '<div class="sg-metric-card__header"><span class="dashicons dashicons-admin-settings"></span> ' . esc_html__('Current Preset', 'secure-guard') . '</div>';
+        echo '<div class="sg-metric-card__number" style="font-size:22px;">' . esc_html($preset_label) . '</div>';
+        echo '<div class="sg-metric-card__sub"><a href="' . esc_url($assistant_url) . '">' . esc_html__('Review in Security Assistant', 'secure-guard') . '</a></div>';
+        echo '</div>';
+
+        $lock_active = is_array($lock_data) && $lock_data !== [];
+        echo '<div class="sg-metric-card' . ($lock_active ? ' sg-metric-card--alert' : ' sg-metric-card--ok') . '">';
+        echo '<div class="sg-metric-card__header"><span class="dashicons dashicons-lock"></span> ' . esc_html__('Lockdown State', 'secure-guard') . '</div>';
+        echo '<div class="sg-metric-card__number" style="font-size:22px;">' . esc_html($lock_active ? __('Active', 'secure-guard') : __('Normal', 'secure-guard')) . '</div>';
+        echo '<div class="sg-metric-card__sub"><a href="' . esc_url($assistant_url) . '">' . esc_html__('Open lockdown controls', 'secure-guard') . '</a></div>';
+        echo '</div>';
+
         echo '</div>'; // .sg-metric-grid
+        
+        // ── attack clusters ─────────────────────────────────────────────
+        $clusters = $stats['clusters'] ?? [];
+        if (!empty($clusters)) {
+            echo '<h2 style="margin-top:30px;">' . esc_html__('Attack Vectors (Last 24h)', 'secure-guard') . '</h2>';
+            echo '<div class="sg-metric-grid">';
+            foreach ($clusters as $c) {
+                $cluster_name = str_replace('_', ' ', ucfirst((string) ($c['cluster'] ?? 'unknown')));
+                echo '<div class="sg-metric-card">';
+                echo '<div class="sg-metric-card__header"><span class="dashicons dashicons-target"></span> ' . esc_html($cluster_name) . '</div>';
+                echo '<div class="sg-metric-card__number">' . esc_html((string) $c['count']) . '</div>';
+                echo '</div>';
+            }
+            echo '</div>';
+        }
 
         if ($integrity_alerts > 0) {
             echo '<div class="notice notice-warning inline" style="margin:12px 0 0;padding:8px 12px;">';

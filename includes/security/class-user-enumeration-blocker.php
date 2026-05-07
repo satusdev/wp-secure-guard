@@ -42,8 +42,8 @@ final class Secure_Guard_User_Enumeration_Blocker {
         }
 
         if ($is_strict) {
-            // In strict mode, we literally wipe all endpoints for anyone who isn't authorized,
-            // EXCEPT for those specifically whitelisted in the Compatibility settings.
+            // In strict mode, remove all endpoints for unauthorized callers except
+            // namespaces explicitly allowed in Whitelists.
             $filtered = [];
             foreach ($endpoints as $route => $handler) {
                 if ($this->is_route_allowed($route)) {

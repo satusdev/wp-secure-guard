@@ -107,12 +107,17 @@ final class Secure_Guard_Rules_Page {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($modules as $module): ?>
+                        <?php foreach ($modules as $module): 
+                            $config_url = add_query_arg('tab', $module['tab'], $settings_url);
+                            if ($module['label'] === __('Global IP Whitelist', 'secure-guard') || $module['label'] === __('Admin Area Protection', 'secure-guard')) {
+                                $config_url = add_query_arg('tab', 'whitelist', $settings_url);
+                            }
+                        ?>
                         <tr>
                             <td><strong><?php echo esc_html($module['label']); ?></strong></td>
                             <td><?php echo ($module['key'] === null || !empty($s[$module['key']])) ? $on : $off; // phpcs:ignore WordPress.Security.EscapeOutput ?></td>
                             <td><?php echo esc_html($module['description']); ?></td>
-                            <td><a href="<?php echo esc_url(add_query_arg('tab', $module['tab'], $settings_url)); ?>"><?php esc_html_e('Settings →', 'secure-guard'); ?></a></td>
+                            <td><a href="<?php echo esc_url($config_url); ?>"><?php esc_html_e('Settings →', 'secure-guard'); ?></a></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>

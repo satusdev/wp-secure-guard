@@ -45,13 +45,16 @@ final class Secure_Guard_Installer {
             method VARCHAR(12) NOT NULL,
             result VARCHAR(32) NOT NULL,
             reason VARCHAR(190) NOT NULL,
+            attack_cluster VARCHAR(32) NULL,
+            country_code CHAR(2) NULL,
             context LONGTEXT NULL,
             created_at DATETIME NOT NULL,
             PRIMARY KEY (id),
             KEY endpoint (endpoint),
             KEY created_at (created_at),
             KEY result (result),
-            KEY reason (reason)
+            KEY reason (reason),
+            KEY attack_cluster (attack_cluster)
         ) {$charset_collate};";
 
         $sql_rate = "CREATE TABLE {$rate_limits_table} (
@@ -59,10 +62,12 @@ final class Secure_Guard_Installer {
             subject VARCHAR(255) NOT NULL,
             window_started_at DATETIME NOT NULL,
             hit_count INT UNSIGNED NOT NULL,
+            reputation_score INT UNSIGNED NOT NULL DEFAULT 0,
             blocked_until DATETIME NULL,
             PRIMARY KEY (id),
             UNIQUE KEY subject (subject),
-            KEY blocked_until (blocked_until)
+            KEY blocked_until (blocked_until),
+            KEY reputation_score (reputation_score)
         ) {$charset_collate};";
 
         $sql_jwt_denylist = "CREATE TABLE {$jwt_denylist_table} (
@@ -80,14 +85,26 @@ final class Secure_Guard_Installer {
         dbDelta($sql_rate);
         dbDelta($sql_jwt_denylist);
 
-        // Add ip index to sg_logs for IP-based log filtering (added in v1.1.0).
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.SchemaChange
-        $wpdb->query("ALTER TABLE {$logs_table} ADD INDEX ip (ip)"); // suppress error if already exists
-        // phpcs:enable
+        self::ensure_column($logs_table, 'attack_cluster', 'ALTER TABLE ' . $logs_table . ' ADD COLUMN attack_cluster VARCHAR(32) NULL AFTER reason');
+        self::ensure_column($logs_table, 'country_code', 'ALTER TABLE ' . $logs_table . ' ADD COLUMN country_code CHAR(2) NULL AFTER attack_cluster');
+        self::ensure_column($rate_limits_table, 'reputation_score', 'ALTER TABLE ' . $rate_limits_table . ' ADD COLUMN reputation_score INT UNSIGNED NOT NULL DEFAULT 0 AFTER hit_count');
+
+        // Phase 1 Migration: Add missing indices that dbDelta might have missed or syntax-rejected.
+        if (!self::index_exists($logs_table, 'ip')) {
+            $wpdb->query("ALTER TABLE {$logs_table} ADD INDEX ip (ip)");
+        }
+        if (!self::index_exists($logs_table, 'attack_cluster')) {
+            $wpdb->query("ALTER TABLE {$logs_table} ADD INDEX attack_cluster (attack_cluster)");
+        }
+        if (!self::index_exists($rate_limits_table, 'reputation_score')) {
+            $wpdb->query("ALTER TABLE {$rate_limits_table} ADD INDEX reputation_score (reputation_score)");
+        }
 
         // Migrate existing installs: widen token_hash from CHAR(64) to TEXT and drop the old UNIQUE index.
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.SchemaChange
-        $wpdb->query("ALTER TABLE {$tokens_table} DROP INDEX token_hash"); // suppress error if already gone
+        if (self::index_exists($tokens_table, 'token_hash')) {
+            $wpdb->query("ALTER TABLE {$tokens_table} DROP INDEX token_hash");
+        }
+        
         $wpdb->query("ALTER TABLE {$tokens_table} MODIFY COLUMN token_hash TEXT NULL");
         // phpcs:enable
 
@@ -97,5 +114,119 @@ final class Secure_Guard_Installer {
             update_option(Secure_Guard_Config::OPTION_KEY, Secure_Guard_Config::defaults(), false);
         }
         update_option(Secure_Guard_Config::DB_VERSION_OPTION, Secure_Guard_Config::DB_VERSION, false);
+
+        self::deploy_watchdog();
+    }
+
+    public static function deploy_watchdog(): void {
+        $settings = Secure_Guard_Config::get_settings();
+        $mu_path = $settings['mu_plugin_path'] ?? (defined('WPMU_PLUGIN_DIR') ? WPMU_PLUGIN_DIR : WP_CONTENT_DIR . '/mu-plugins');
+        
+        if (!is_dir($mu_path)) {
+            wp_mkdir_p($mu_path);
+        }
+
+        $watchdog_file = $mu_path . '/secure-guard-watchdog.php';
+        $plugin_path = SECURE_GUARD_DIR;
+
+        $content = "<?php
+/**
+ * Secure Guard Watchdog (MU-Plugin)
+ * Automatically deployed by Secure Guard.
+ * Enforces core security rules even if the main plugin is deactivated.
+ */
+
+if (!defined('ABSPATH')) exit;
+
+// 1. Lockdown Check (High Performance)
+
+
+\$watchdog_lock_state = get_transient('sg_lock_state');
+if (!is_array(\$watchdog_lock_state)) {
+    \$watchdog_lock_state = get_option('secure_guard_lock_state');
+}
+if (is_array(\$watchdog_lock_state) && !empty(\$watchdog_lock_state['expires']) && (int) \$watchdog_lock_state['expires'] <= time()) {
+    delete_transient('sg_lock_state');
+    delete_option('secure_guard_lock_state');
+    \$watchdog_lock_state = false;
+}
+
+if (\$watchdog_lock_state) {
+    // If lockdown is active, we only allow requests that might be login/admin 
+    // We can't use is_user_logged_in() yet, but we can check cookie existence
+    \$has_auth_cookie = false;
+    foreach (\$_COOKIE as \$name => \$val) {
+        if (str_starts_with(\$name, 'wordpress_logged_in_')) {
+            \$has_auth_cookie = true;
+            break;
+        }
+    }
+    
+    // Also allow wp-login.php so admins CAN log in
+    \$is_login_page = str_contains(\$_SERVER['SCRIPT_NAME'] ?? '', 'wp-login.php');
+
+    if (!\$has_auth_cookie && !\$is_login_page) {
+        status_header(503);
+        die('Site is under emergency maintenance. Please try again later.');
+    }
+}
+
+// 2. Main Plugin Reactivation (Optional)
+// if (defined('WP_ADMIN')) { ... }
+
+// 3. Minimal Enforcement Engine
+if (file_exists('{$plugin_path}includes/class-config.php')) {
+    require_once '{$plugin_path}includes/class-config.php';
+    require_once '{$plugin_path}includes/security/class-ip-whitelist.php';
+    require_once '{$plugin_path}includes/data/class-rate-limit-repository.php';
+
+    \$watchdog_settings = Secure_Guard_Config::get_settings();
+    \$watchdog_whitelist = new Secure_Guard_IP_Whitelist(\$watchdog_settings);
+    \$watchdog_ip = \$watchdog_whitelist->get_request_ip();
+    
+    if (!\$watchdog_whitelist->is_allowed(\$watchdog_ip)) {
+        // A. Hard Transient Block
+        \$watchdog_block_key = 'sg_iblk_' . substr(md5('ip-block:' . \$watchdog_ip), 0, 16);
+        if (get_transient(\$watchdog_block_key)) {
+             status_header(403);
+             die('Forbidden by Secure Guard (IP Blocked)');
+        }
+
+        // B. Reputation Score Block (Check DB directly for efficiency)
+        global \$wpdb;
+        \$rep_score = (int) \$wpdb->get_var(\$wpdb->prepare(
+            \"SELECT reputation_score FROM {\$wpdb->prefix}sg_rate_limits WHERE subject = %s\",
+            'rep:' . \$watchdog_ip
+        ));
+
+        \$block_threshold = (int) (\$watchdog_settings['reputation_block_score'] ?? 100);
+        if (\$rep_score >= \$block_threshold) {
+            status_header(403);
+            die('Forbidden by Secure Guard (High Risk Reputation)');
+        }
+    }
+}
+";
+
+        file_put_contents($watchdog_file, $content);
+    }
+
+    private static function column_exists(string $table, string $column): bool {
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM {$table} LIKE %s", $column));
+        return !empty($row);
+    }
+
+    private static function ensure_column(string $table, string $column, string $alter_sql): void {
+        global $wpdb;
+        if (!self::column_exists($table, $column)) {
+            $wpdb->query($alter_sql);
+        }
+    }
+
+    private static function index_exists(string $table, string $index): bool {
+        global $wpdb;
+        $results = $wpdb->get_results($wpdb->prepare("SHOW INDEX FROM {$table} WHERE Key_name = %s", $index));
+        return !empty($results);
     }
 }

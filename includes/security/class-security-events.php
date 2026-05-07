@@ -33,4 +33,33 @@ final class Secure_Guard_Security_Events {
             'plugins' => $plugins,
         ]);
     }
+
+    public function on_password_reset(WP_User $user): void {
+        $this->logs->log('/wp-login.php', 'PASSWORD_RESET', 'INFO', 'Password reset successful', [
+            'user_id' => (int) $user->ID,
+            'username' => $user->user_login,
+        ]);
+    }
+
+    public function on_profile_update(int $user_id, WP_User $old_user_data): void {
+        $new_user = get_userdata($user_id);
+        if (!$new_user) return;
+
+        $changes = [];
+        if ($new_user->user_email !== $old_user_data->user_email) {
+            $changes['email'] = 'changed';
+        }
+
+        if ($changes !== []) {
+            $this->record_profile_update($user_id);
+            $this->logs->log('/wp-admin/profile.php', 'PROFILE_UPDATE', 'INFO', 'Sensitive profile change', [
+                'user_id' => $user_id,
+                'changes' => $changes,
+            ]);
+        }
+    }
+
+    public function record_profile_update(int $user_id): void {
+        delete_transient('sg_dashboard_stats');
+    }
 }

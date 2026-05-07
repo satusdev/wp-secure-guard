@@ -51,7 +51,7 @@ final class Secure_Guard_IP_Whitelist {
         $token_list = trim((string) ($token_ips ?? ''));
 
         if ($global_list === '' && $token_list === '') {
-            return true;
+            return false;
         }
 
         return $this->ip_in_list($ip, $global_list) || $this->ip_in_list($ip, $token_list);

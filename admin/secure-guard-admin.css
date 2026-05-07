@@ -43,6 +43,62 @@
 /* =========================================================
    Metric card grid — used on Dashboard
    ========================================================= */
+.sg-docs-layout {
+	display: grid;
+	grid-template-columns: 240px 1fr;
+	gap: 24px;
+	align-items: start;
+	margin-top: 20px;
+}
+
+.secure-guard-ui .sg-docs-sidebar {
+	position: sticky;
+	top: 50px;
+	background: #fff;
+	padding: 15px;
+	border: 1px solid #c3c4c7;
+	border-radius: var(--sg-border-radius);
+}
+
+.secure-guard-ui .sg-docs-nav ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.secure-guard-ui .sg-docs-nav li {
+	margin-bottom: 8px;
+}
+
+.secure-guard-ui .sg-docs-nav a {
+	display: block;
+	padding: 5px 10px;
+	border-radius: 4px;
+	color: #1d2327;
+	font-weight: 500;
+	text-decoration: none;
+}
+
+.secure-guard-ui .sg-docs-nav a:hover,
+.secure-guard-ui .sg-docs-nav a:focus {
+	background: #f0f0f1;
+	color: #2271b1;
+}
+
+.secure-guard-ui .sg-docs-content .card {
+	padding: 24px;
+	margin-bottom: 24px;
+	border-top: 4px solid #2271b1;
+}
+
+.secure-guard-ui .sg-docs-content pre {
+	overflow-x: auto;
+	padding: 12px;
+	border-radius: 4px;
+	background: #272822;
+	color: #f8f8f2;
+}
+
 .secure-guard-ui .sg-metric-grid {
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
@@ -103,6 +159,48 @@
 .secure-guard-ui .sg-metric-card__sub {
 	font-size: 11px;
 	color: #646970;
+}
+
+/* =========================================================
+   Security Assistant
+   ========================================================= */
+.secure-guard-ui .sg-preset-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: var(--sg-gap);
+	max-width: 1400px;
+}
+
+.secure-guard-ui .sg-preset-card {
+	padding: 18px;
+	border-left: 4px solid #c3c4c7;
+}
+
+.secure-guard-ui .sg-preset-card--active {
+	border-left-color: #0f5132;
+	background: #f8fffb;
+}
+
+.secure-guard-ui .sg-lockdown-card,
+.secure-guard-ui .sg-recommendations-card {
+	padding: 18px;
+}
+
+.secure-guard-ui .sg-recommendation-list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.secure-guard-ui .sg-recommendation-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: 16px;
+	padding: 12px;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	background: #fff;
 }
 
 /* =========================================================
@@ -291,13 +389,17 @@
    UI Refinements
    ========================================================= */
 .secure-guard-ui .card {
-	box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
+	box-shadow:
+		0 1px 3px rgba(0, 0, 0, 0.05),
+		0 1px 2px rgba(0, 0, 0, 0.1);
 	border: 1px solid #dcdcde;
 	transition: box-shadow 0.2s ease-in-out;
 }
 
 .secure-guard-ui .card:hover {
-	box-shadow: 0 4px 6px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.08);
+	box-shadow:
+		0 4px 6px rgba(0, 0, 0, 0.07),
+		0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .secure-guard-ui h1 {
@@ -340,6 +442,14 @@
 }
 
 @media (max-width: 782px) {
+	.sg-docs-layout {
+		grid-template-columns: 1fr;
+	}
+
+	.secure-guard-ui .sg-docs-sidebar {
+		position: static;
+	}
+
 	.secure-guard-ui .sg-metric-grid {
 		grid-template-columns: 1fr;
 	}
@@ -371,4 +481,33 @@
 	.secure-guard-ui .sg-metric-card__number {
 		font-size: 24px;
 	}
+}
+
+/* =========================================================
+   Geo flags
+   ========================================================= */
+.secure-guard-ui .sg-flag {
+	display: inline-block;
+	padding: 2px 4px;
+	background: #f0f0f1;
+	border: 1px solid #dcdcde;
+	border-radius: 3px;
+	font-size: 10px;
+	font-weight: 700;
+	color: #646970;
+	line-height: 1;
+	min-width: 20px;
+	text-align: center;
+}
+
+.secure-guard-ui .sg-flag--local {
+	background: #fff8e1;
+	border-color: #ffe082;
+	color: #ff8f00;
+	font-size: 14px;
+}
+
+.secure-guard-ui .sg-flag--unknown {
+	background: #fdfdfe;
+	border-style: dashed;
 }
