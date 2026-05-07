@@ -32,7 +32,17 @@ protections.
   checksum scans.
 - Audit logging for deny/security events and security-sensitive admin events.
 - Security dashboard metrics for blocked IPs, failed logins, API requests, and
-  active tokens.
+  active tokens, current preset, and lockdown state.
+- Security Assistant admin experience for presets, emergency lockdown controls,
+  false-positive recovery guidance, and actionable recommendations.
+- Beginner, Balanced, Maximum Security, and Custom operating modes. Presets map
+  to existing sanitized configuration keys rather than introducing a parallel
+  runtime policy branch.
+- Bulk failed-login and IP-block recovery workflows for clearing selected
+  blocks, all login lockouts, or a single login-only lockout without weakening
+  unrelated firewall state.
+- Persistent emergency lockdown fallback via `secure_guard_lock_state` so a
+  cache restart does not silently clear an active lockdown before expiry.
 - Safe-strict modern header injection including `Referrer-Policy`,
   `Permissions-Policy`, balanced CSP by default, optional HSTS, and COOP/CORP.
 
@@ -83,14 +93,35 @@ protections.
 - `class-ip-whitelist.php`: trusted proxy-aware client IP resolution and
   IPv4/IPv6 CIDR checks.
 - `class-admin-area-protector.php`: `/wp-admin` access guard.
-- `class-wp-hardening.php`: generator/version/readme/license and exposure probe
-  hardening.
-- `class-wp-hardening.php`: also removes feed/discovery metadata links in tough
-  mode.
+- `class-wp-hardening.php`: generator/version/readme/license exposure probe
+  hardening; also removes feed/discovery metadata links in strict mode.
 - `class-security-maintenance.php`: scheduled log retention purge task.
+- `class-site-health.php`: WordPress Site Health dashboard integration.
 - `class-file-integrity-monitor.php`: checksum baseline + scheduled change
   detection.
 - `class-security-events.php`: audit hooks for role/plugin changes.
+- `class-security-presets.php`: preset registry and current mode detection for
+  the Security Assistant.
+
+### Admin UX Layer
+
+- `admin/class-security-assistant-page.php`: user-friendly orchestration page
+  for high-frequency operations: selecting a preset, engaging/releasing
+  emergency lockdown, restoring the previous preset snapshot, seeing active
+  blocks, and reviewing setup recommendations. It warns when JWT settings are
+  environment-managed and not overwritten by presets.
+- `admin/class-blocked-ips-page.php`: false-positive recovery and active block
+  management. Single-IP unblock clears both `ip-block:{ip}` and
+  `login-block:{ip}` subjects plus related transients; login-only unblock clears
+  only login lockout state and the failed-login counter. Manual recovery also
+  invalidates dashboard stats and attack-velocity state.
+- `admin/class-docs-page.php`: operational usage docs with validated sidebar
+  anchors for presets, JWT, REST security, whitelists, recovery, lockdown,
+  adaptive security, logs, and troubleshooting.
+- `admin/class-reputation-page.php`: reputation list and actions are backed by
+  repository queries rather than page-level SQL.
+- Advanced pages remain available for manual control. When settings diverge from
+  a preset, the assistant reports Custom mode instead of forcing a preset label.
 
 ## Data Model
 
@@ -126,6 +157,8 @@ protections.
 - `method` varchar(12)
 - `result` varchar(32)
 - `reason` varchar(190)
+- `attack_cluster` varchar(32) nullable
+- `country_code` char(2) nullable
 - `context` longtext JSON string
 - `created_at` datetime
 
@@ -135,11 +168,19 @@ protections.
 - `subject` varchar(255) unique
 - `window_started_at` datetime
 - `hit_count` int
+- `reputation_score` int unsigned
 - `blocked_until` datetime nullable
 
 ## Configuration Conventions
 
 - Option key: `secure_guard_settings`.
+- Option key: `secure_guard_active_preset` stores the last explicitly applied
+  preset slug for admin UX context.
+- Option key: `secure_guard_previous_settings_snapshot` stores the immediately
+  previous settings array before applying a preset so rollback can restore the
+  last known-good configuration.
+- Option key: `secure_guard_lock_state` stores persistent emergency-lockdown
+  metadata alongside the `sg_lock_state` transient.
 - Capability required for admin actions: `manage_options`.
 - Defaults:
   - REST lock enabled.
@@ -154,6 +195,8 @@ protections.
   - JWT-only authentication with short TTL + denylist revocation support.
   - Balanced CSP policy enabled by default.
   - Rate limit = 100 requests per minute.
+  - Automatic lockdown velocity threshold = 500 reputation points per short
+    velocity window.
 
 ## Coding Conventions
 
@@ -162,6 +205,10 @@ protections.
 - No direct SQL outside repository/installer classes.
 - Use prepared statements for all queries.
 - Keep request checks side-effect free except logging and limiter persistence.
+- Presets must be applied through the same sanitization path as normal settings
+  and must preserve environment-managed JWT fields.
+- Emergency and false-positive admin actions must be nonce-protected,
+  idempotent, and use safe redirects.
 
 ## Folder Structure
 
