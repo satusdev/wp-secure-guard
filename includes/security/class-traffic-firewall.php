@@ -179,6 +179,13 @@ final class Secure_Guard_Traffic_Firewall {
             return true;
         }
 
+        // Detect REST request early (on init hook before REST_REQUEST is defined by WP)
+        $request_uri = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? '/'));
+        $rest_prefix = '/' . rest_get_url_prefix() . '/';
+        if (str_contains($request_uri, $rest_prefix) || isset($_GET['rest_route'])) {
+            return true;
+        }
+
         return false;
     }
 
@@ -279,6 +286,12 @@ final class Secure_Guard_Traffic_Firewall {
         $remote_addr = sanitize_text_field((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
         $server_addr = sanitize_text_field((string) ($_SERVER['SERVER_ADDR'] ?? ''));
         if ($remote_addr !== '' && ($remote_addr === $server_addr || in_array($remote_addr, ['127.0.0.1', '::1'], true))) {
+            return true;
+        }
+
+        // Also check if the resolved request IP is a loopback IP or server IP
+        $client_ip = $this->ip_whitelist->get_request_ip();
+        if ($client_ip === '127.0.0.1' || $client_ip === '::1' || $client_ip === $server_addr) {
             return true;
         }
 

@@ -100,9 +100,9 @@ final class Secure_Guard_Config {
             'jwt_clock_skew_seconds' => 30,
             'bind_jwt_to_ip' => 0,
             'bind_jwt_to_ua' => 0,
-            // unsafe-inline is intentionally omitted from script-src to prevent XSS.
-            // style-src retains unsafe-inline because most WordPress themes rely on inline styles.
-            'csp' => "default-src 'self' https: data: blob:; script-src 'self' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'self'; object-src 'none'; base-uri 'self'",
+            // unsafe-inline and unsafe-eval are included in script-src by default to prevent breaking core
+            // WordPress capabilities, page builders (Elementor, Divi), and common plugins.
+            'csp' => "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'self'; object-src 'none'; base-uri 'self'",
             'referrer_policy' => 'strict-origin-when-cross-origin',
             'permissions_policy' => 'camera=(), microphone=(), geolocation=()',
             'enable_coop' => 1,
@@ -174,6 +174,15 @@ final class Secure_Guard_Config {
 
         if (isset($settings['csp']) && trim((string) $settings['csp']) === "default-src 'self'") {
             $settings['csp'] = '';
+        }
+
+        // Migrate older installs with the restrictive default CSP to the new layout-safe default CSP.
+        $old_default_csp = "default-src 'self' https: data: blob:; script-src 'self' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'self'; object-src 'none'; base-uri 'self'";
+        if (isset($stored['csp']) && trim((string) $stored['csp']) === $old_default_csp) {
+            $defaults = self::defaults();
+            $stored['csp'] = $defaults['csp'];
+            update_option(self::OPTION_KEY, $stored, false);
+            $settings['csp'] = $stored['csp'];
         }
 
         // Apply environment variable overrides. Env vars take precedence over the database-stored
@@ -294,6 +303,26 @@ final class Secure_Guard_Config {
             Secure_Guard_Installer::deploy_watchdog();
         }
 
+        if (!empty($settings['hide_wp_info']) && class_exists('Secure_Guard_WP_Hardening')) {
+            Secure_Guard_WP_Hardening::write_htaccess_protection();
+        }
+
         return $settings;
+    }
+
+    public static function get_content_dir(): string {
+        return defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR : ABSPATH . 'wp-content';
+    }
+
+    public static function get_mu_plugin_dir(): string {
+        return defined('WPMU_PLUGIN_DIR') ? WPMU_PLUGIN_DIR : self::get_content_dir() . '/mu-plugins';
+    }
+
+    public static function get_debug_log_path(): string {
+        return self::get_content_dir() . '/debug.log';
+    }
+
+    public static function get_htaccess_path(): string {
+        return self::get_content_dir() . '/.htaccess';
     }
 }

@@ -26,6 +26,10 @@ final class Secure_Guard_Site_Health {
             'label' => __('REST API Hardening', 'secure-guard'),
             'test'  => [$this, 'test_rest_hardening'],
         ];
+        $tests['direct']['secure_guard_debug_log'] = [
+            'label' => __('Debug Log Exposure Check', 'secure-guard'),
+            'test'  => [$this, 'test_debug_log_exposure'],
+        ];
         return $tests;
     }
 
@@ -74,6 +78,49 @@ final class Secure_Guard_Site_Health {
                 __('Configure REST Security', 'secure-guard')
             ),
             'test'        => 'secure_guard_rest_lock',
+        ];
+    }
+
+    public function test_debug_log_exposure(): array {
+        $debug_log_path = Secure_Guard_Config::get_debug_log_path();
+        if (!file_exists($debug_log_path)) {
+            return [
+                'label'       => __('Debug log is not present', 'secure-guard'),
+                'status'      => 'good',
+                'badge'       => ['label' => __('Security', 'secure-guard'), 'color' => 'blue'],
+                'description' => __('No debug.log file was found in the content directory. This is safe.', 'secure-guard'),
+                'test'        => 'secure_guard_debug_log',
+            ];
+        }
+
+        // Try to access the file via HTTP request
+        $debug_log_url = content_url('debug.log');
+        $response = wp_remote_get($debug_log_url, [
+            'sslverify' => false,
+            'timeout'   => 5,
+        ]);
+
+        if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+            return [
+                'label'       => __('Debug log is publicly accessible!', 'secure-guard'),
+                'status'      => 'critical',
+                'badge'       => ['label' => __('Security', 'secure-guard'), 'color' => 'red'],
+                'description' => __('Your debug.log file contains sensitive application logs and is publicly readable. Secure Guard has attempted to block this via .htaccess, but your web server (e.g. Nginx) or configuration is bypassing it. Please restrict access to this file immediately.', 'secure-guard'),
+                'actions'     => sprintf(
+                    '<a href="%s">%s</a>',
+                    esc_url(admin_url('admin.php?page=secure-guard-settings&tab=hardening')),
+                    __('Go to Hardening Settings', 'secure-guard')
+                ),
+                'test'        => 'secure_guard_debug_log',
+            ];
+        }
+
+        return [
+            'label'       => __('Debug log is secure', 'secure-guard'),
+            'status'      => 'good',
+            'badge'       => ['label' => __('Security', 'secure-guard'), 'color' => 'blue'],
+            'description' => __('A debug.log file is present, but public access to it is blocked successfully.', 'secure-guard'),
+            'test'        => 'secure_guard_debug_log',
         ];
     }
 }

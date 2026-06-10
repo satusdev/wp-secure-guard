@@ -116,11 +116,12 @@ final class Secure_Guard_Installer {
         update_option(Secure_Guard_Config::DB_VERSION_OPTION, Secure_Guard_Config::DB_VERSION, false);
 
         self::deploy_watchdog();
+        Secure_Guard_WP_Hardening::write_htaccess_protection();
     }
 
     public static function deploy_watchdog(): void {
         $settings = Secure_Guard_Config::get_settings();
-        $mu_path = $settings['mu_plugin_path'] ?? (defined('WPMU_PLUGIN_DIR') ? WPMU_PLUGIN_DIR : WP_CONTENT_DIR . '/mu-plugins');
+        $mu_path = $settings['mu_plugin_path'] ?? Secure_Guard_Config::get_mu_plugin_dir();
         
         if (!is_dir($mu_path)) {
             wp_mkdir_p($mu_path);

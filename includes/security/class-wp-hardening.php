@@ -25,6 +25,11 @@ final class Secure_Guard_WP_Hardening {
             remove_action('wp_head', 'rest_output_link_wp_head', 10);
             remove_action('template_redirect', 'rest_output_link_header', 11);
             remove_action('wp_head', 'wp_oembed_add_discovery_links');
+
+            // Ensure .htaccess file blocks direct logs access if it doesn't exist
+            if (!file_exists(Secure_Guard_Config::get_htaccess_path())) {
+                self::write_htaccess_protection();
+            }
         }
 
         if (!empty($this->settings['rest_strict_mode'])) {
@@ -151,5 +156,39 @@ final class Secure_Guard_WP_Hardening {
 
         status_header(403);
         wp_die(esc_html__('Forbidden', 'secure-guard'), esc_html__('Forbidden', 'secure-guard'), ['response' => 403]);
+    }
+
+    public static function write_htaccess_protection(): void {
+        $content_dir = Secure_Guard_Config::get_content_dir();
+        if (!is_dir($content_dir)) {
+            return;
+        }
+
+        $htaccess_file = Secure_Guard_Config::get_htaccess_path();
+        $rules = [
+            '# BEGIN Secure Guard - Protect Log Files',
+            '<Files ~ "\.log$">',
+            '    <IfModule mod_authz_core.c>',
+            '        Require all denied',
+            '    </IfModule>',
+            '    <IfModule !mod_authz_core.c>',
+            '        Order deny,allow',
+            '        Deny from all',
+            '    </IfModule>',
+            '</Files>',
+            '# END Secure Guard - Protect Log Files'
+        ];
+
+        $rules_str = implode("\n", $rules) . "\n";
+
+        if (file_exists($htaccess_file)) {
+            $content = file_get_contents($htaccess_file);
+            if (strpos($content, 'BEGIN Secure Guard - Protect Log Files') === false) {
+                // Prepend our rules to avoid interfering with existing ones
+                @file_put_contents($htaccess_file, $rules_str . "\n" . $content);
+            }
+        } else {
+            @file_put_contents($htaccess_file, $rules_str);
+        }
     }
 }
