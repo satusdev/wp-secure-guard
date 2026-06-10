@@ -305,6 +305,9 @@ final class Secure_Guard_Config {
 
         if (!empty($settings['hide_wp_info']) && class_exists('Secure_Guard_WP_Hardening')) {
             Secure_Guard_WP_Hardening::write_htaccess_protection();
+            update_option('secure_guard_htaccess_hardened', 1, false);
+        } else {
+            delete_option('secure_guard_htaccess_hardened');
         }
 
         return $settings;
@@ -324,5 +327,13 @@ final class Secure_Guard_Config {
 
     public static function get_htaccess_path(): string {
         return self::get_content_dir() . '/.htaccess';
+    }
+
+    public static function get_root_htaccess_path(): string {
+        $root = ABSPATH;
+        if (str_ends_with(rtrim(ABSPATH, '/\\'), '/wp')) {
+            $root = dirname(ABSPATH) . '/';
+        }
+        return $root . '.htaccess';
     }
 }

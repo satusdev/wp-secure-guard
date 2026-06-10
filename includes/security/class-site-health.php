@@ -101,6 +101,7 @@ final class Secure_Guard_Site_Health {
         ]);
 
         if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+            delete_option('secure_guard_htaccess_hardened');
             return [
                 'label'       => __('Debug log is publicly accessible!', 'secure-guard'),
                 'status'      => 'critical',

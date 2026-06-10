@@ -26,9 +26,10 @@ final class Secure_Guard_WP_Hardening {
             remove_action('template_redirect', 'rest_output_link_header', 11);
             remove_action('wp_head', 'wp_oembed_add_discovery_links');
 
-            // Ensure .htaccess file blocks direct logs access if it doesn't exist
-            if (!file_exists(Secure_Guard_Config::get_htaccess_path())) {
+            // Ensure .htaccess file contains the web server hardening rules
+            if (!get_option('secure_guard_htaccess_hardened')) {
                 self::write_htaccess_protection();
+                update_option('secure_guard_htaccess_hardened', 1, false);
             }
         }
 
@@ -159,15 +160,14 @@ final class Secure_Guard_WP_Hardening {
     }
 
     public static function write_htaccess_protection(): void {
-        $content_dir = Secure_Guard_Config::get_content_dir();
-        if (!is_dir($content_dir)) {
-            return;
-        }
+        $files = [
+            Secure_Guard_Config::get_htaccess_path(),
+            Secure_Guard_Config::get_root_htaccess_path(),
+        ];
 
-        $htaccess_file = Secure_Guard_Config::get_htaccess_path();
         $rules = [
-            '# BEGIN Secure Guard - Protect Log Files',
-            '<Files ~ "\.log$">',
+            '# BEGIN Secure Guard - Web Server Hardening',
+            '<FilesMatch "\.(log|ini|sh|bak|conf)$">',
             '    <IfModule mod_authz_core.c>',
             '        Require all denied',
             '    </IfModule>',
@@ -175,20 +175,43 @@ final class Secure_Guard_WP_Hardening {
             '        Order deny,allow',
             '        Deny from all',
             '    </IfModule>',
-            '</Files>',
-            '# END Secure Guard - Protect Log Files'
+            '</FilesMatch>',
+            '<FilesMatch "^(readme\.html|license\.txt|install\.php|upgrade\.php)$">',
+            '    <IfModule mod_authz_core.c>',
+            '        Require all denied',
+            '    </IfModule>',
+            '    <IfModule !mod_authz_core.c>',
+            '        Order deny,allow',
+            '        Deny from all',
+            '    </IfModule>',
+            '</FilesMatch>',
+            '# END Secure Guard - Web Server Hardening'
         ];
 
         $rules_str = implode("\n", $rules) . "\n";
 
-        if (file_exists($htaccess_file)) {
-            $content = file_get_contents($htaccess_file);
-            if (strpos($content, 'BEGIN Secure Guard - Protect Log Files') === false) {
-                // Prepend our rules to avoid interfering with existing ones
-                @file_put_contents($htaccess_file, $rules_str . "\n" . $content);
+        foreach ($files as $file) {
+            $dir = dirname($file);
+            if (!is_dir($dir)) {
+                continue;
             }
-        } else {
-            @file_put_contents($htaccess_file, $rules_str);
+
+            if (file_exists($file)) {
+                $content = @file_get_contents($file);
+                if ($content === false) {
+                    continue;
+                }
+
+                // Remove old block if present to avoid duplicates
+                $content = preg_replace('/# BEGIN Secure Guard - Protect Log Files.*?# END Secure Guard - Protect Log Files\s*/s', '', $content);
+
+                if (strpos($content, 'BEGIN Secure Guard - Web Server Hardening') === false) {
+                    // Prepend new rules to avoid interfering with existing ones
+                    @file_put_contents($file, $rules_str . "\n" . $content);
+                }
+            } else {
+                @file_put_contents($file, $rules_str);
+            }
         }
     }
 }

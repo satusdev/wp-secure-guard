@@ -275,10 +275,6 @@ final class Secure_Guard_Traffic_Firewall {
             return true;
         }
 
-        if (defined('DOING_CRON') && DOING_CRON) {
-            return true;
-        }
-
         if (is_user_logged_in() && current_user_can('manage_options')) {
             return true;
         }
