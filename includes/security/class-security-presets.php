@@ -14,9 +14,9 @@ final class Secure_Guard_Security_Presets {
     public static function all(): array {
         return [
             'beginner' => [
-                'label'       => __('Beginner', 'secure-guard'),
-                'target'      => __('Blogs, creators, and low-risk brochure sites', 'secure-guard'),
-                'description' => __('Safe defaults with lower false-positive risk and clear protection against common WordPress abuse.', 'secure-guard'),
+                'label'       => __('Beginner', 'wp-secure-guard'),
+                'target'      => __('Blogs, creators, and low-risk brochure sites', 'wp-secure-guard'),
+                'description' => __('Safe defaults with lower false-positive risk and clear protection against common WordPress abuse.', 'wp-secure-guard'),
                 'settings'    => [
                     'rest_lock_enabled' => 1,
                     'block_sensitive_endpoints' => 1,
@@ -50,9 +50,9 @@ final class Secure_Guard_Security_Presets {
                 ],
             ],
             'balanced' => [
-                'label'       => __('Balanced', 'secure-guard'),
-                'target'      => __('Agencies, business sites, and production WordPress installs', 'secure-guard'),
-                'description' => __('Recommended default. Strong protection with conservative thresholds to avoid locking out legitimate admins.', 'secure-guard'),
+                'label'       => __('Balanced', 'wp-secure-guard'),
+                'target'      => __('Agencies, business sites, and production WordPress installs', 'wp-secure-guard'),
+                'description' => __('Recommended default. Strong protection with conservative thresholds to avoid locking out legitimate admins.', 'wp-secure-guard'),
                 'settings'    => [
                     'rest_lock_enabled' => 1,
                     'block_sensitive_endpoints' => 1,
@@ -86,9 +86,9 @@ final class Secure_Guard_Security_Presets {
                 ],
             ],
             'maximum' => [
-                'label'       => __('Maximum Security', 'secure-guard'),
-                'target'      => __('APIs, SaaS sites, admin portals, and high-risk environments', 'secure-guard'),
-                'description' => __('Aggressive controls for hostile traffic. Review whitelists and recovery before applying.', 'secure-guard'),
+                'label'       => __('Maximum Security', 'wp-secure-guard'),
+                'target'      => __('APIs, SaaS sites, admin portals, and high-risk environments', 'wp-secure-guard'),
+                'description' => __('Aggressive controls for hostile traffic. Review whitelists and recovery before applying.', 'wp-secure-guard'),
                 'settings'    => [
                     'rest_lock_enabled' => 1,
                     'block_sensitive_endpoints' => 1,
@@ -152,10 +152,10 @@ final class Secure_Guard_Security_Presets {
 
     public static function label(string $slug): string {
         if ($slug === 'custom') {
-            return __('Custom', 'secure-guard');
+            return __('Custom', 'wp-secure-guard');
         }
 
         $preset = self::get($slug);
-        return is_array($preset) ? (string) $preset['label'] : __('Unknown', 'secure-guard');
+        return is_array($preset) ? (string) $preset['label'] : __('Unknown', 'wp-secure-guard');
     }
 }

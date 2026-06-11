@@ -18,17 +18,22 @@ final class Secure_Guard_Logs_Page {
 
     public function render(): void {
         if (!current_user_can('manage_options')) {
-            wp_die(esc_html__('Unauthorized', 'secure-guard'));
+            wp_die(esc_html__('Unauthorized', 'wp-secure-guard'));
         }
 
-        $current_page  = max(1, (int) ($_GET['paged'] ?? 1));
-        $result_filter = strtoupper(sanitize_key((string) ($_GET['result'] ?? '')));
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $current_page  = max(1, (int) wp_unslash($_GET['paged'] ?? 1));
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $result_filter = strtoupper(sanitize_key(wp_unslash((string) ($_GET['result'] ?? ''))));
         if (!in_array($result_filter, ['BLOCKED', 'ALLOWED', 'FAILED', ''], true)) {
             $result_filter = '';
         }
-        $ip_filter = sanitize_text_field((string) ($_GET['filter_ip'] ?? ''));
-        $date_from = sanitize_text_field((string) ($_GET['date_from'] ?? ''));
-        $date_to   = sanitize_text_field((string) ($_GET['date_to'] ?? ''));
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $ip_filter = sanitize_text_field(wp_unslash((string) ($_GET['filter_ip'] ?? '')));
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $date_from = sanitize_text_field(wp_unslash((string) ($_GET['date_from'] ?? '')));
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $date_to   = sanitize_text_field(wp_unslash((string) ($_GET['date_to'] ?? '')));
         // Discard values that don’t match YYYY-MM-DD to prevent injection via prepare().
         if ($date_from !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_from)) {
             $date_from = '';
@@ -45,46 +50,46 @@ final class Secure_Guard_Logs_Page {
 
         echo '<div class="wrap secure-guard-ui">';
         echo '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
-        echo '<h1>' . esc_html__('Logs', 'secure-guard') . '</h1>';
+        echo '<h1>' . esc_html__('Logs', 'wp-secure-guard') . '</h1>';
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
         echo '<input type="hidden" name="action" value="sg_export_logs" />';
         wp_nonce_field('sg_export_logs');
-        echo '<button type="submit" class="button button-secondary">' . esc_html__('Export to CSV', 'secure-guard') . '</button>';
+        echo '<button type="submit" class="button button-secondary">' . esc_html__('Export to CSV', 'wp-secure-guard') . '</button>';
         echo '</form>';
         echo '</div>';
 
-        echo '<p class="description">' . esc_html__('Security and API decisions. ALLOWED = token/auth checks passed; WordPress may still return rest_no_route if the endpoint is unregistered.', 'secure-guard') . '</p>';
+        echo '<p class="description">' . esc_html__('Security and API decisions. ALLOWED = token/auth checks passed; WordPress may still return rest_no_route if the endpoint is unregistered.', 'wp-secure-guard') . '</p>';
 
         // Filter bar
         $filter_args = ['filter_ip' => $ip_filter, 'date_from' => $date_from, 'date_to' => $date_to];
         echo '<form method="get" action="' . esc_url(admin_url('admin.php')) . '" style="margin-bottom:12px;">';
         echo '<input type="hidden" name="page" value="secure-guard-logs" />';
         echo '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">';
-        echo '<strong>' . esc_html__('Result:', 'secure-guard') . '</strong>';
-        foreach (['' => __('All', 'secure-guard'), 'BLOCKED' => __('Blocked', 'secure-guard'), 'ALLOWED' => __('Allowed', 'secure-guard'), 'FAILED' => __('Failed', 'secure-guard')] as $val => $text) {
+        echo '<strong>' . esc_html__('Result:', 'wp-secure-guard') . '</strong>';
+        foreach (['' => __('All', 'wp-secure-guard'), 'BLOCKED' => __('Blocked', 'wp-secure-guard'), 'ALLOWED' => __('Allowed', 'wp-secure-guard'), 'FAILED' => __('Failed', 'wp-secure-guard')] as $val => $text) {
             $is_active = $result_filter === strtoupper($val);
             echo '<a href="' . esc_url(add_query_arg(array_merge($filter_args, ['result' => strtolower($val), 'paged' => 1]), $base_url)) . '"'
                 . ' class="button button-small' . ($is_active ? ' button-primary' : '') . '">'
                 . esc_html($text) . '</a>';
         }
-        echo '<span style="color:#646970;margin-left:4px;">' . sprintf(esc_html__('%d entries', 'secure-guard'), $total) . '</span>';
-        echo '<span style="margin-left:12px;"><label>' . esc_html__('IP:', 'secure-guard') . ' ';
+        echo '<span style="color:#646970;margin-left:4px;">' . sprintf(esc_html__('%d entries', 'wp-secure-guard'), $total) . '</span>';
+        echo '<span style="margin-left:12px;"><label>' . esc_html__('IP:', 'wp-secure-guard') . ' ';
         echo '<input type="text" name="filter_ip" value="' . esc_attr($ip_filter) . '" placeholder="1.2.3.4" style="width:130px;" /></label></span>';
-        echo '<span><label>' . esc_html__('From:', 'secure-guard') . ' ';
+        echo '<span><label>' . esc_html__('From:', 'wp-secure-guard') . ' ';
         echo '<input type="date" name="date_from" value="' . esc_attr($date_from) . '" style="width:140px;" /></label></span>';
-        echo '<span><label>' . esc_html__('To:', 'secure-guard') . ' ';
+        echo '<span><label>' . esc_html__('To:', 'wp-secure-guard') . ' ';
         echo '<input type="date" name="date_to" value="' . esc_attr($date_to) . '" style="width:140px;" /></label></span>';
         echo '<input type="hidden" name="result" value="' . esc_attr(strtolower($result_filter)) . '" />';
-        echo '<button type="submit" class="button button-small">' . esc_html__('Apply', 'secure-guard') . '</button>';
+        echo '<button type="submit" class="button button-small">' . esc_html__('Apply', 'wp-secure-guard') . '</button>';
         if ($ip_filter !== '' || $date_from !== '' || $date_to !== '') {
-            echo ' <a class="button button-small" href="' . esc_url(add_query_arg(['result' => strtolower($result_filter), 'paged' => 1], $base_url)) . '">' . esc_html__('Clear filters', 'secure-guard') . '</a>';
+            echo ' <a class="button button-small" href="' . esc_url(add_query_arg(['result' => strtolower($result_filter), 'paged' => 1], $base_url)) . '">' . esc_html__('Clear filters', 'wp-secure-guard') . '</a>';
         }
         echo '</div></form>';
 
         echo '<div class="card" style="max-width:1400px;padding:16px;">';
 
         if ($entries === []) {
-            echo '<p><em>' . esc_html__('No log entries match the current filter.', 'secure-guard') . '</em></p>';
+            echo '<p><em>' . esc_html__('No log entries match the current filter.', 'wp-secure-guard') . '</em></p>';
             echo '</div></div>';
             return;
         }
@@ -92,14 +97,14 @@ final class Secure_Guard_Logs_Page {
         echo '<table class="widefat striped">';
         echo '<thead><tr>';
         echo '<th style="width:60px;">ID</th>';
-        echo '<th style="width:150px;">' . esc_html__('Time (UTC)', 'secure-guard') . '</th>';
-        echo '<th style="width:50px;">' . esc_html__('Geo', 'secure-guard') . '</th>';
-        echo '<th style="width:120px;">' . esc_html__('IP', 'secure-guard') . '</th>';
-        echo '<th style="width:70px;">' . esc_html__('Method', 'secure-guard') . '</th>';
-        echo '<th>' . esc_html__('Endpoint', 'secure-guard') . '</th>';
-        echo '<th style="width:90px;">' . esc_html__('Result', 'secure-guard') . '</th>';
-        echo '<th>' . esc_html__('Reason', 'secure-guard') . '</th>';
-        echo '<th style="width:120px;">' . esc_html__('Details', 'secure-guard') . '</th>';
+        echo '<th style="width:150px;">' . esc_html__('Time (UTC)', 'wp-secure-guard') . '</th>';
+        echo '<th style="width:50px;">' . esc_html__('Geo', 'wp-secure-guard') . '</th>';
+        echo '<th style="width:120px;">' . esc_html__('IP', 'wp-secure-guard') . '</th>';
+        echo '<th style="width:70px;">' . esc_html__('Method', 'wp-secure-guard') . '</th>';
+        echo '<th>' . esc_html__('Endpoint', 'wp-secure-guard') . '</th>';
+        echo '<th style="width:90px;">' . esc_html__('Result', 'wp-secure-guard') . '</th>';
+        echo '<th>' . esc_html__('Reason', 'wp-secure-guard') . '</th>';
+        echo '<th style="width:120px;">' . esc_html__('Details', 'wp-secure-guard') . '</th>';
         echo '</tr></thead>';
         echo '<tbody>';
 
@@ -125,7 +130,7 @@ final class Secure_Guard_Logs_Page {
             if ($cc !== '' && $cc !== 'LO') {
                 echo '<span class="sg-flag" title="' . esc_attr($cc) . '">' . esc_html($cc) . '</span>';
             } elseif ($cc === 'LO') {
-                echo '<span class="sg-flag sg-flag--local" title="' . esc_attr__('Local', 'secure-guard') . '">🏠</span>';
+                echo '<span class="sg-flag sg-flag--local" title="' . esc_attr__('Local', 'wp-secure-guard') . '">🏠</span>';
             } else {
                 echo '<span class="sg-flag sg-flag--unknown">?</span>';
             }
@@ -142,7 +147,7 @@ final class Secure_Guard_Logs_Page {
             $ctx_data = $ctx_raw !== '' ? json_decode($ctx_raw, true) : null;
             if (is_array($ctx_data) && $ctx_data !== []) {
                 echo '<td style="font-size:11px;">';
-                echo '<details><summary style="cursor:pointer;color:#2271b1;">' . esc_html__('view', 'secure-guard') . '</summary>';
+                echo '<details><summary style="cursor:pointer;color:#2271b1;">' . esc_html__('view', 'wp-secure-guard') . '</summary>';
                 echo '<dl style="margin:4px 0;padding:0;">';
                 foreach ($ctx_data as $k => $v) {
                     if ($k === 'ip') {
@@ -163,8 +168,10 @@ final class Secure_Guard_Logs_Page {
                     echo '<input type="hidden" name="ip" value="' . esc_attr($row_ip) . '" />';
                     echo '<input type="hidden" name="duration_hours" value="24" />';
                     wp_nonce_field('sg_block_ip_manual');
+                    // translators: %s: IP address
+                    $confirm_msg = sprintf(esc_html__('Block %s for 24 hours?', 'wp-secure-guard'), $row_ip);
                     echo '<button type="submit" class="button button-small" style="color:#a00;border-color:#a00;"'
-                        . ' onclick="return confirm(\'' . esc_js(sprintf(__('Block %s for 24 hours?', 'secure-guard'), $row_ip)) . '\')">' . esc_html__('Block IP', 'secure-guard') . '</button>';
+                        . ' onclick="return confirm(\'' . esc_js($confirm_msg) . '\')">' . esc_html__('Block IP', 'wp-secure-guard') . '</button>';
                     echo '</form>';
                 }
                 echo '</td>';
@@ -176,8 +183,10 @@ final class Secure_Guard_Logs_Page {
                 echo '<input type="hidden" name="ip" value="' . esc_attr($row_ip) . '" />';
                 echo '<input type="hidden" name="duration_hours" value="24" />';
                 wp_nonce_field('sg_block_ip_manual');
+                // translators: %s: IP address
+                $confirm_msg = sprintf(esc_html__('Block %s for 24 hours?', 'wp-secure-guard'), $row_ip);
                 echo '<button type="submit" class="button button-small" style="color:#a00;border-color:#a00;"'
-                    . ' onclick="return confirm(\'' . esc_js(sprintf(__('Block %s for 24 hours?', 'secure-guard'), $row_ip)) . '\')">' . esc_html__('Block IP', 'secure-guard') . '</button>';
+                    . ' onclick="return confirm(\'' . esc_js($confirm_msg) . '\')">' . esc_html__('Block IP', 'wp-secure-guard') . '</button>';
                 echo '</form></td>';
             } else {
                 echo '<td></td>';
@@ -196,14 +205,15 @@ final class Secure_Guard_Logs_Page {
             echo '<div class="tablenav-pages" style="display:flex;align-items:center;gap:8px;">';
             if ($current_page > 1) {
                 echo '<a class="button" href="' . esc_url(add_query_arg(array_merge($page_args, ['paged' => $current_page - 1]), $base_url)) . '">'
-                    . '&laquo; ' . esc_html__('Previous', 'secure-guard') . '</a>';
+                    . '&laquo; ' . esc_html__('Previous', 'wp-secure-guard') . '</a>';
             }
             echo '<span class="paging-input">'
-                . sprintf(esc_html__('Page %1$d of %2$d', 'secure-guard'), $current_page, $total_pages)
+                // translators: 1: current page, 2: total pages
+                . sprintf(esc_html__('Page %1$d of %2$d', 'wp-secure-guard'), (int) $current_page, (int) $total_pages)
                 . '</span>';
             if ($current_page < $total_pages) {
                 echo '<a class="button" href="' . esc_url(add_query_arg(array_merge($page_args, ['paged' => $current_page + 1]), $base_url)) . '">'
-                    . esc_html__('Next', 'secure-guard') . ' &raquo;</a>';
+                    . esc_html__('Next', 'wp-secure-guard') . ' &raquo;</a>';
             }
             echo '</div></div>';
         }
@@ -213,7 +223,7 @@ final class Secure_Guard_Logs_Page {
 
     public function handle_export(): void {
         if (!current_user_can('manage_options')) {
-            wp_die(__('Unauthorized', 'secure-guard'));
+            wp_die(esc_html__('Unauthorized', 'wp-secure-guard'));
         }
 
         check_admin_referer('sg_export_logs');
@@ -221,7 +231,7 @@ final class Secure_Guard_Logs_Page {
         $entries = $this->logs->recent(5000); // Export last 5000 entries
         
         header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename=secure-guard-logs-' . date('Y-m-d') . '.csv');
+        header('Content-Disposition: attachment; filename=secure-guard-logs-' . gmdate('Y-m-d') . '.csv');
 
         $output = fopen('php://output', 'w');
         fputcsv($output, ['ID', 'Time (UTC)', 'IP', 'Country', 'Method', 'Endpoint', 'Result', 'Reason', 'Cluster']);
@@ -239,6 +249,7 @@ final class Secure_Guard_Logs_Page {
                 $entry['attack_cluster']
             ]);
         }
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
         fclose($output);
         exit;
     }

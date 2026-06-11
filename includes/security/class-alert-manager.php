@@ -53,22 +53,22 @@ final class Secure_Guard_Alert_Manager {
         $site  = get_bloginfo('name');
         $subj  = sprintf(
             /* translators: 1: site name, 2: IP address */
-            __('[%1$s] Security Alert: IP %2$s blocked', 'secure-guard'),
+            __('[%1$s] Security Alert: IP %2$s blocked', 'wp-secure-guard'),
             $site,
             $ip
         );
 
         $body  = sprintf(
             /* translators: 1: site name */
-            __("Secure Guard has blocked an IP address on %s.\n\n", 'secure-guard'),
+            __("Secure Guard has blocked an IP address on %s.\n\n", 'wp-secure-guard'),
             $site
         );
-        $body .= sprintf(__("IP Address : %s\n", 'secure-guard'), $ip);
-        $body .= sprintf(__("Reason     : %s\n", 'secure-guard'), $reason);
-        $body .= sprintf(__("Expires    : %s UTC\n", 'secure-guard'), $expires_until);
+        $body .= sprintf(__("IP Address : %s\n", 'wp-secure-guard'), $ip);
+        $body .= sprintf(__("Reason     : %s\n", 'wp-secure-guard'), $reason);
+        $body .= sprintf(__("Expires    : %s UTC\n", 'wp-secure-guard'), $expires_until);
         $body .= "\n" . sprintf(
             /* translators: URL to blocked IPs admin page */
-            __("Manage blocked IPs: %s\n", 'secure-guard'),
+            __("Manage blocked IPs: %s\n", 'wp-secure-guard'),
             admin_url('admin.php?page=secure-guard-blocked-ips')
         );
 
@@ -97,18 +97,18 @@ final class Secure_Guard_Alert_Manager {
         $site = get_bloginfo('name');
         $subj = sprintf(
             /* translators: site name */
-            __('[%s] Security Alert: File integrity changes detected', 'secure-guard'),
+            __('[%s] Security Alert: File integrity changes detected', 'wp-secure-guard'),
             $site
         );
 
         $body  = sprintf(
             /* translators: 1: number of files, 2: site name */
-            __("Secure Guard detected %1\$d file change(s) on %2\$s.\n\n", 'secure-guard'),
+            __("Secure Guard detected %1\$d file change(s) on %2\$s.\n\n", 'wp-secure-guard'),
             $change_count,
             $site
         );
-        $body .= __("Core WordPress files (wp-admin, wp-includes) have changed since the last recorded baseline.\n", 'secure-guard');
-        $body .= "\n" . __("To review and reset the baseline, visit the Security Dashboard:\n", 'secure-guard');
+        $body .= __("Core WordPress files (wp-admin, wp-includes) have changed since the last recorded baseline.\n", 'wp-secure-guard');
+        $body .= "\n" . __("To review and reset the baseline, visit the Security Dashboard:\n", 'wp-secure-guard');
         $body .= admin_url('admin.php?page=secure-guard') . "\n";
 
         $this->send($subj, $body);
@@ -142,23 +142,23 @@ final class Secure_Guard_Alert_Manager {
         $site      = get_bloginfo('name');
         $subj      = sprintf(
             /* translators: 1: site name, 2: token name */
-            __('[%1$s] Security Alert: Token "%2$s" expiring soon', 'secure-guard'),
+            __('[%1$s] Security Alert: Token "%2$s" expiring soon', 'wp-secure-guard'),
             $site,
             $token_name
         );
 
         $body  = sprintf(
             /* translators: 1: token name, 2: site name */
-            __("The JWT token \"%1\$s\" on %2\$s is expiring soon.\n\n", 'secure-guard'),
+            __("The JWT token \"%1\$s\" on %2\$s is expiring soon.\n\n", 'wp-secure-guard'),
             $token_name,
             $site
         );
-        $body .= sprintf(__("Token ID   : %d\n", 'secure-guard'), $token_id);
-        $body .= sprintf(__("Expires    : %s UTC\n", 'secure-guard'), $expires_at);
-        $body .= sprintf(__("Days left  : %d\n", 'secure-guard'), $days_left);
+        $body .= sprintf(__("Token ID   : %d\n", 'wp-secure-guard'), $token_id);
+        $body .= sprintf(__("Expires    : %s UTC\n", 'wp-secure-guard'), $expires_at);
+        $body .= sprintf(__("Days left  : %d\n", 'wp-secure-guard'), $days_left);
         $body .= "\n" . sprintf(
             /* translators: URL to tokens admin page */
-            __("Manage tokens: %s\n", 'secure-guard'),
+            __("Manage tokens: %s\n", 'wp-secure-guard'),
             admin_url('admin.php?page=secure-guard-tokens')
         );
 

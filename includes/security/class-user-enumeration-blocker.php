@@ -100,7 +100,7 @@ final class Secure_Guard_User_Enumeration_Blocker {
         $this->logs->log($request_uri, $method, 'BLOCKED', $reason, []);
 
         status_header(403);
-        wp_die(esc_html__('Forbidden', 'secure-guard'), esc_html__('Forbidden', 'secure-guard'), ['response' => 403]);
+        wp_die(esc_html__('Forbidden', 'wp-secure-guard'), esc_html__('Forbidden', 'wp-secure-guard'), ['response' => 403]);
     }
 
     /**
@@ -168,7 +168,7 @@ final class Secure_Guard_User_Enumeration_Blocker {
         // Return a 404 instead of 403 to pretend the endpoint doesn't exist.
         return new WP_Error(
             'rest_no_route',
-            __('No route was found matching the URL and request method.', 'secure-guard'),
+            __('No route was found matching the URL and request method.', 'wp-secure-guard'),
             ['status' => 404]
         );
     }

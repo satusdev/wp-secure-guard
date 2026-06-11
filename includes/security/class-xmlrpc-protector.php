@@ -52,6 +52,6 @@ final class Secure_Guard_XMLRPC_Protector {
         $this->logs->log($path, $method, 'BLOCKED', 'XML-RPC request blocked', []);
 
         status_header(403);
-        wp_die(esc_html__('Forbidden', 'secure-guard'), esc_html__('Forbidden', 'secure-guard'), ['response' => 403]);
+        wp_die(esc_html__('Forbidden', 'wp-secure-guard'), esc_html__('Forbidden', 'wp-secure-guard'), ['response' => 403]);
     }
 }

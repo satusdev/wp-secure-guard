@@ -39,25 +39,25 @@ final class Secure_Guard_Admin_Menu {
 
     public function register_menu(): void {
         add_menu_page(
-            __('Security API Guard', 'secure-guard'),
-            __('Security API Guard', 'secure-guard'),
+            __('Security API Guard', 'wp-secure-guard'),
+            __('Security API Guard', 'wp-secure-guard'),
             'manage_options',
-            'secure-guard',
+            'wp-secure-guard',
             [$this->dashboard_page, 'render'],
             'dashicons-shield-alt',
             56
         );
 
-        add_submenu_page('secure-guard', __('Dashboard', 'secure-guard'), __('Dashboard', 'secure-guard'), 'manage_options', 'secure-guard', [$this->dashboard_page, 'render']);
-        add_submenu_page('secure-guard', __('Security Assistant', 'secure-guard'), __('Security Assistant', 'secure-guard'), 'manage_options', 'secure-guard-assistant', [$this->security_assistant_page, 'render']);
-        add_submenu_page('secure-guard', __('Tokens', 'secure-guard'), __('Tokens', 'secure-guard'), 'manage_options', 'secure-guard-tokens', [$this->tokens_page, 'render']);
-        add_submenu_page('secure-guard', __('Security Rules', 'secure-guard'), __('Security Rules', 'secure-guard'), 'manage_options', 'secure-guard-rules', [$this->rules_page, 'render']);
-        add_submenu_page('secure-guard', __('IP Reputation', 'secure-guard'), __('IP Reputation', 'secure-guard'), 'manage_options', 'secure-guard-reputation', [$this->reputation_page, 'render']);
-        add_submenu_page('secure-guard', __('Logs', 'secure-guard'), __('Logs', 'secure-guard'), 'manage_options', 'secure-guard-logs', [$this->logs_page, 'render']);
-        add_submenu_page('secure-guard', __('Blocked IPs', 'secure-guard'), __('Blocked IPs', 'secure-guard'), 'manage_options', 'secure-guard-blocked-ips', [$this->blocked_ips_page, 'render']);
-        add_submenu_page('secure-guard', __('Whitelists', 'secure-guard'), __('Whitelists', 'secure-guard'), 'manage_options', 'secure-guard-whitelists', [$this->settings_page, 'render']);
-        add_submenu_page('secure-guard', __('Settings', 'secure-guard'), __('Settings', 'secure-guard'), 'manage_options', 'secure-guard-settings', [$this->settings_page, 'render']);
-        add_submenu_page('secure-guard', __('Documentation', 'secure-guard'), __('Documentation', 'secure-guard'), 'manage_options', 'secure-guard-docs', [$this->docs_page, 'render']);
+        add_submenu_page('wp-secure-guard', __('Dashboard', 'wp-secure-guard'), __('Dashboard', 'wp-secure-guard'), 'manage_options', 'wp-secure-guard', [$this->dashboard_page, 'render']);
+        add_submenu_page('wp-secure-guard', __('Security Assistant', 'wp-secure-guard'), __('Security Assistant', 'wp-secure-guard'), 'manage_options', 'secure-guard-assistant', [$this->security_assistant_page, 'render']);
+        add_submenu_page('wp-secure-guard', __('Tokens', 'wp-secure-guard'), __('Tokens', 'wp-secure-guard'), 'manage_options', 'secure-guard-tokens', [$this->tokens_page, 'render']);
+        add_submenu_page('wp-secure-guard', __('Security Rules', 'wp-secure-guard'), __('Security Rules', 'wp-secure-guard'), 'manage_options', 'secure-guard-rules', [$this->rules_page, 'render']);
+        add_submenu_page('wp-secure-guard', __('IP Reputation', 'wp-secure-guard'), __('IP Reputation', 'wp-secure-guard'), 'manage_options', 'secure-guard-reputation', [$this->reputation_page, 'render']);
+        add_submenu_page('wp-secure-guard', __('Logs', 'wp-secure-guard'), __('Logs', 'wp-secure-guard'), 'manage_options', 'secure-guard-logs', [$this->logs_page, 'render']);
+        add_submenu_page('wp-secure-guard', __('Blocked IPs', 'wp-secure-guard'), __('Blocked IPs', 'wp-secure-guard'), 'manage_options', 'secure-guard-blocked-ips', [$this->blocked_ips_page, 'render']);
+        add_submenu_page('wp-secure-guard', __('Whitelists', 'wp-secure-guard'), __('Whitelists', 'wp-secure-guard'), 'manage_options', 'secure-guard-whitelists', [$this->settings_page, 'render']);
+        add_submenu_page('wp-secure-guard', __('Settings', 'wp-secure-guard'), __('Settings', 'wp-secure-guard'), 'manage_options', 'secure-guard-settings', [$this->settings_page, 'render']);
+        add_submenu_page('wp-secure-guard', __('Documentation', 'wp-secure-guard'), __('Documentation', 'wp-secure-guard'), 'manage_options', 'secure-guard-docs', [$this->docs_page, 'render']);
     }
 
     public function register_admin_actions(): void {
@@ -74,7 +74,7 @@ final class Secure_Guard_Admin_Menu {
 
     public function enqueue_admin_assets(string $hook): void {
         // Only load on this plugin's pages.
-        if (!str_contains($hook, 'secure-guard')) {
+        if (!str_contains($hook, 'wp-secure-guard')) {
             return;
         }
 

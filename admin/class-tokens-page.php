@@ -31,12 +31,13 @@ final class Secure_Guard_Tokens_Page {
 
     public function handle_create(): void {
         if (!current_user_can('manage_options')) {
-            wp_die(esc_html__('Unauthorized', 'secure-guard'));
+            wp_die(esc_html__('Unauthorized', 'wp-secure-guard'));
         }
         check_admin_referer('secure_guard_create_token');
 
-        $name = sanitize_text_field((string) ($_POST['name'] ?? 'Token'));
-        $scopes_raw = sanitize_text_field((string) ($_POST['scope'] ?? 'read_posts'));
+        $name = sanitize_text_field(wp_unslash((string) ($_POST['name'] ?? 'Token')));
+        $scopes_raw = sanitize_text_field(wp_unslash((string) ($_POST['scope'] ?? 'read_posts')));
+        // Reject any scope not in the defined allowlist to prevent arbitrary scope inflation.
         $scopes = array_filter(array_map('sanitize_key', array_map('trim', explode(',', $scopes_raw))));
         // Reject any scope not in the defined allowlist to prevent arbitrary scope inflation.
         $scopes = array_values(array_intersect($scopes, Secure_Guard_Config::VALID_SCOPES));
@@ -44,10 +45,10 @@ final class Secure_Guard_Tokens_Page {
             $scopes = ['read_posts'];
         }
 
-        $allowed_endpoints = sanitize_textarea_field((string) ($_POST['allowed_endpoints'] ?? ''));
-        $allowed_ips = sanitize_textarea_field((string) ($_POST['allowed_ips'] ?? ''));
-        $rate_limit = isset($_POST['rate_limit_per_minute']) && $_POST['rate_limit_per_minute'] !== '' ? max(1, (int) $_POST['rate_limit_per_minute']) : null;
-        $expires_at = sanitize_text_field((string) ($_POST['expires_at'] ?? ''));
+        $allowed_endpoints = sanitize_textarea_field(wp_unslash((string) ($_POST['allowed_endpoints'] ?? '')));
+        $allowed_ips = sanitize_textarea_field(wp_unslash((string) ($_POST['allowed_ips'] ?? '')));
+        $rate_limit = isset($_POST['rate_limit_per_minute']) && $_POST['rate_limit_per_minute'] !== '' ? max(1, (int) wp_unslash($_POST['rate_limit_per_minute'])) : null;
+        $expires_at = sanitize_text_field(wp_unslash((string) ($_POST['expires_at'] ?? '')));
         $ttl_minutes = max(1, (int) ($this->settings['jwt_ttl_minutes'] ?? 60));
         $default_expires_at = gmdate('Y-m-d H:i:s', time() + ($ttl_minutes * MINUTE_IN_SECONDS));
         if ($expires_at !== '') {
@@ -99,11 +100,11 @@ final class Secure_Guard_Tokens_Page {
 
     public function handle_revoke(): void {
         if (!current_user_can('manage_options')) {
-            wp_die(esc_html__('Unauthorized', 'secure-guard'));
+            wp_die(esc_html__('Unauthorized', 'wp-secure-guard'));
         }
         check_admin_referer('secure_guard_revoke_token');
 
-        $id = (int) ($_POST['token_id'] ?? 0);
+        $id = (int) wp_unslash($_POST['token_id'] ?? 0);
         if ($id > 0) {
             $this->tokens->revoke($id);
             $this->remove_recent_token($id);
@@ -117,11 +118,11 @@ final class Secure_Guard_Tokens_Page {
 
     public function handle_reissue(): void {
         if (!current_user_can('manage_options')) {
-            wp_die(esc_html__('Unauthorized', 'secure-guard'));
+            wp_die(esc_html__('Unauthorized', 'wp-secure-guard'));
         }
         check_admin_referer('secure_guard_reissue_token');
 
-        $id = (int) ($_POST['token_id'] ?? 0);
+        $id = (int) wp_unslash($_POST['token_id'] ?? 0);
         if ($id <= 0) {
             wp_safe_redirect(admin_url('admin.php?page=secure-guard-tokens&error=reissue'));
             exit;
@@ -167,11 +168,11 @@ final class Secure_Guard_Tokens_Page {
 
     public function handle_delete(): void {
         if (!current_user_can('manage_options')) {
-            wp_die(esc_html__('Unauthorized', 'secure-guard'));
+            wp_die(esc_html__('Unauthorized', 'wp-secure-guard'));
         }
         check_admin_referer('secure_guard_delete_token');
 
-        $id = (int) ($_POST['token_id'] ?? 0);
+        $id = (int) wp_unslash($_POST['token_id'] ?? 0);
         if ($id > 0) {
             $this->tokens->delete($id);
             $this->remove_recent_token($id);
@@ -185,29 +186,29 @@ final class Secure_Guard_Tokens_Page {
 
     public function handle_edit(): void {
         if (!current_user_can('manage_options')) {
-            wp_die(esc_html__('Unauthorized', 'secure-guard'));
+            wp_die(esc_html__('Unauthorized', 'wp-secure-guard'));
         }
         check_admin_referer('secure_guard_edit_token');
 
-        $id = (int) ($_POST['token_id'] ?? 0);
+        $id = (int) wp_unslash($_POST['token_id'] ?? 0);
         if ($id <= 0) {
             wp_safe_redirect(admin_url('admin.php?page=secure-guard-tokens&error=edit'));
             exit;
         }
 
-        $name           = sanitize_text_field((string) ($_POST['name'] ?? ''));
-        $scopes_raw     = sanitize_text_field((string) ($_POST['scope'] ?? 'read_posts'));
+        $name           = sanitize_text_field(wp_unslash((string) ($_POST['name'] ?? '')));
+        $scopes_raw     = sanitize_text_field(wp_unslash((string) ($_POST['scope'] ?? 'read_posts')));
         $scopes         = array_filter(array_map('sanitize_key', array_map('trim', explode(',', $scopes_raw))));
         // Reject any scope not in the defined allowlist.
         $scopes         = array_values(array_intersect($scopes, Secure_Guard_Config::VALID_SCOPES));
         if (empty($scopes)) {
             $scopes = ['read_posts'];
         }
-        $allowed_endpoints = sanitize_textarea_field((string) ($_POST['allowed_endpoints'] ?? ''));
-        $allowed_ips    = sanitize_textarea_field((string) ($_POST['allowed_ips'] ?? ''));
+        $allowed_endpoints = sanitize_textarea_field(wp_unslash((string) ($_POST['allowed_endpoints'] ?? '')));
+        $allowed_ips    = sanitize_textarea_field(wp_unslash((string) ($_POST['allowed_ips'] ?? '')));
         $rate_limit     = isset($_POST['rate_limit_per_minute']) && $_POST['rate_limit_per_minute'] !== ''
-            ? max(1, (int) $_POST['rate_limit_per_minute']) : null;
-        $expires_at_raw = sanitize_text_field((string) ($_POST['expires_at'] ?? ''));
+            ? max(1, (int) wp_unslash($_POST['rate_limit_per_minute'])) : null;
+        $expires_at_raw = sanitize_text_field(wp_unslash((string) ($_POST['expires_at'] ?? '')));
         $expires_at     = null;
         if ($expires_at_raw !== '') {
             $ts = strtotime($expires_at_raw);
@@ -233,11 +234,12 @@ final class Secure_Guard_Tokens_Page {
 
     public function render(): void {
         if (!current_user_can('manage_options')) {
-            wp_die(esc_html__('Unauthorized', 'secure-guard'));
+            wp_die(esc_html__('Unauthorized', 'wp-secure-guard'));
         }
 
         $recent_tokens    = $this->get_recent_tokens();
-        $current_page     = max(1, (int) ($_GET['paged'] ?? 1));
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $current_page     = max(1, (int) wp_unslash($_GET['paged'] ?? 1));
         $total_tokens     = $this->tokens->count_tokens();
         $offset           = ($current_page - 1) * self::PER_PAGE;
         $rows             = $this->tokens->all_tokens(self::PER_PAGE, $offset);
@@ -250,7 +252,8 @@ final class Secure_Guard_Tokens_Page {
         $edit_token_id    = isset($_GET['edit_token_id']) ? (int) $_GET['edit_token_id'] : 0;
 
         $revealed_token_id = 0;
-        $reveal_nonce = isset($_GET['reveal_nonce']) ? sanitize_text_field((string) $_GET['reveal_nonce']) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $reveal_nonce = isset($_GET['reveal_nonce']) ? sanitize_text_field(wp_unslash((string) $_GET['reveal_nonce'])) : '';
         if (!empty($_GET['reveal_token_id']) && $reveal_nonce !== '') {
             $candidate_id = (int) $_GET['reveal_token_id'];
             if ($candidate_id > 0 && wp_verify_nonce($reveal_nonce, 'secure_guard_reveal_token_' . $candidate_id)) {
@@ -262,97 +265,100 @@ final class Secure_Guard_Tokens_Page {
         ?>
         <div class="wrap secure-guard-ui">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <h1><?php echo esc_html__('Tokens', 'secure-guard'); ?></h1>
+                <h1><?php echo esc_html__('Tokens', 'wp-secure-guard'); ?></h1>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="sg_export_tokens" />
                     <?php wp_nonce_field('sg_export_tokens'); ?>
-                    <button type="submit" class="button button-secondary"><?php echo esc_html__('Export to CSV', 'secure-guard'); ?></button>
+                    <button type="submit" class="button button-secondary"><?php echo esc_html__('Export to CSV', 'wp-secure-guard'); ?></button>
                 </form>
             </div>
-            <p class="description"><?php echo esc_html__('JWT token values are hidden by default. You can reveal recently generated tokens on demand for a short time.', 'secure-guard'); ?></p>
-            <div class="notice notice-info"><p><?php echo esc_html__('Logged-in WordPress users (Gutenberg, page builders, media library) bypass JWT enforcement automatically. JWT tokens are for external programmatic API callers that send Authorization: Bearer TOKEN.', 'secure-guard'); ?></p></div>
+            <p class="description"><?php echo esc_html__('JWT token values are hidden by default. You can reveal recently generated tokens on demand for a short time.', 'wp-secure-guard'); ?></p>
+            <div class="notice notice-info"><p><?php echo esc_html__('Logged-in WordPress users (Gutenberg, page builders, media library) bypass JWT enforcement automatically. JWT tokens are for external programmatic API callers that send Authorization: Bearer TOKEN.', 'wp-secure-guard'); ?></p></div>
 
             <?php if ($reissued_action && $reissued_token): ?>
-                <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token re-issued. Old JWT invalidated. New JWT:', 'secure-guard'); ?> <code style="word-break:break-all;"><?php echo esc_html($reissued_token); ?></code> <button type="button" class="button button-small sg-copy-btn" data-copy="<?php echo esc_attr($reissued_token); ?>"><?php esc_html_e('Copy', 'secure-guard'); ?></button></p></div>
+                <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token re-issued. Old JWT invalidated. New JWT:', 'wp-secure-guard'); ?> <code style="word-break:break-all;"><?php echo esc_html($reissued_token); ?></code> <button type="button" class="button button-small sg-copy-btn" data-copy="<?php echo esc_attr($reissued_token); ?>"><?php esc_html_e('Copy', 'wp-secure-guard'); ?></button></p></div>
             <?php elseif ($reissued_action): ?>
-                <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token re-issued successfully. The new JWT is shown in the table below.', 'secure-guard'); ?></p></div>
+                <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token re-issued successfully. The new JWT is shown in the table below.', 'wp-secure-guard'); ?></p></div>
             <?php endif; ?>
 
             <?php if (!empty($_GET['edited'])): ?>
-                <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token updated successfully.', 'secure-guard'); ?></p></div>
+                <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token updated successfully.', 'wp-secure-guard'); ?></p></div>
             <?php endif; ?>
 
             <?php if (!empty($_GET['created'])): ?>
-                <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token created successfully.', 'secure-guard'); ?></p></div>
+                <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token created successfully.', 'wp-secure-guard'); ?></p></div>
             <?php endif; ?>
 
             <?php if (!empty($_GET['revoked'])): ?>
-                <div class="notice notice-warning is-dismissible"><p><?php echo esc_html__('Token revoked.', 'secure-guard'); ?></p></div>
+                <div class="notice notice-warning is-dismissible"><p><?php echo esc_html__('Token revoked.', 'wp-secure-guard'); ?></p></div>
             <?php endif; ?>
 
             <?php if (!empty($_GET['deleted'])): ?>
-                <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token deleted.', 'secure-guard'); ?></p></div>
+                <div class="notice notice-success is-dismissible"><p><?php echo esc_html__('Token deleted.', 'wp-secure-guard'); ?></p></div>
             <?php endif; ?>
 
             <?php if (!empty($_GET['error'])): ?>
                 <?php $error_code = sanitize_key((string) $_GET['error']); ?>
                 <?php if ($error_code === 'db'): ?>
-                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Token could not be created: database insert failed. Check the token table schema and DB permissions.', 'secure-guard'); ?></p></div>
+                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Token could not be created: database insert failed. Check the token table schema and DB permissions.', 'wp-secure-guard'); ?></p></div>
                 <?php elseif ($error_code === 'lookup'): ?>
-                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Token row was created but could not be loaded back. Check database consistency.', 'secure-guard'); ?></p></div>
+                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Token row was created but could not be loaded back. Check database consistency.', 'wp-secure-guard'); ?></p></div>
                 <?php elseif ($error_code === 'expiry_past'): ?>
-                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Expiration date must be in the future. Please choose a later date/time.', 'secure-guard'); ?></p></div>
+                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Expiration date must be in the future. Please choose a later date/time.', 'wp-secure-guard'); ?></p></div>
                 <?php elseif ($error_code === 'jwt'): ?>
-                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('JWT could not be signed. Ensure a JWT secret is configured in Settings → REST &amp; JWT.', 'secure-guard'); ?></p></div>
+                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('JWT could not be signed. Ensure a JWT secret is configured in Settings → REST &amp; JWT.', 'wp-secure-guard'); ?></p></div>
                 <?php elseif ($error_code === 'jti'): ?>
-                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('JTI rotation failed. The old token may already be revoked or the database is unavailable.', 'secure-guard'); ?></p></div>
+                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('JTI rotation failed. The old token may already be revoked or the database is unavailable.', 'wp-secure-guard'); ?></p></div>
                 <?php elseif ($error_code === 'reissue'): ?>
-                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Re-issue failed: token not found or already revoked/expired.', 'secure-guard'); ?></p></div>
+                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Re-issue failed: token not found or already revoked/expired.', 'wp-secure-guard'); ?></p></div>
                 <?php elseif ($error_code === 'edit'): ?>
-                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Token update failed. Please check the values and try again.', 'secure-guard'); ?></p></div>
+                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('Token update failed. Please check the values and try again.', 'wp-secure-guard'); ?></p></div>
                 <?php else: ?>
-                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('An unexpected error occurred. Check JWT configuration and try again.', 'secure-guard'); ?></p></div>
+                    <div class="notice notice-error is-dismissible"><p><?php echo esc_html__('An unexpected error occurred. Check JWT configuration and try again.', 'wp-secure-guard'); ?></p></div>
                 <?php endif; ?>
             <?php endif; ?>
 
             <?php if ($created_token && !$reissued_action): ?>
-                <div class="notice notice-success"><p><?php echo esc_html__('New token generated:', 'secure-guard'); ?> <code style="word-break:break-all;"><?php echo esc_html($created_token); ?></code> <button type="button" class="button button-small sg-copy-btn" data-copy="<?php echo esc_attr($created_token); ?>"><?php esc_html_e('Copy', 'secure-guard'); ?></button></p></div>
+                <div class="notice notice-success"><p><?php echo esc_html__('New token generated:', 'wp-secure-guard'); ?> <code style="word-break:break-all;"><?php echo esc_html($created_token); ?></code> <button type="button" class="button button-small sg-copy-btn" data-copy="<?php echo esc_attr($created_token); ?>"><?php esc_html_e('Copy', 'wp-secure-guard'); ?></button></p></div>
             <?php endif; ?>
 
             <div class="card" style="max-width:1200px;padding:16px;">
-            <h2><?php echo esc_html__('Create Token', 'secure-guard'); ?></h2>
+            <h2><?php echo esc_html__('Create Token', 'wp-secure-guard'); ?></h2>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <input type="hidden" name="action" value="secure_guard_create_token" />
                 <?php wp_nonce_field('secure_guard_create_token'); ?>
                 <table class="form-table" role="presentation">
-                    <tr><th><?php echo esc_html__('Name', 'secure-guard'); ?></th><td><input type="text" name="name" class="regular-text" required /></td></tr>
-                    <tr><th><?php echo esc_html__('Scopes', 'secure-guard'); ?></th><td><input type="text" name="scope" class="regular-text" value="read_posts" /><p class="description"><?php echo esc_html(implode(', ', Secure_Guard_Config::VALID_SCOPES)); ?></p></td></tr>
-                    <tr><th><?php echo esc_html__('Allowed Endpoints', 'secure-guard'); ?></th><td><textarea name="allowed_endpoints" rows="5" cols="60" placeholder="/wp/v2/posts*"></textarea></td></tr>
-                    <tr><th><?php echo esc_html__('Allowed IPs', 'secure-guard'); ?></th><td><textarea name="allowed_ips" rows="4" cols="60" placeholder="12.34.56.78"></textarea></td></tr>
-                    <tr><th><?php echo esc_html__('Rate limit per minute', 'secure-guard'); ?></th><td><input type="number" min="1" name="rate_limit_per_minute" value="100" /></td></tr>
-                    <tr><th><?php echo esc_html__('Expiration (UTC)', 'secure-guard'); ?></th><td><input type="datetime-local" name="expires_at" /></td></tr>
+                    <tr><th><?php echo esc_html__('Name', 'wp-secure-guard'); ?></th><td><input type="text" name="name" class="regular-text" required /></td></tr>
+                    <tr><th><?php echo esc_html__('Scopes', 'wp-secure-guard'); ?></th><td><input type="text" name="scope" class="regular-text" value="read_posts" /><p class="description"><?php echo esc_html(implode(', ', Secure_Guard_Config::VALID_SCOPES)); ?></p></td></tr>
+                    <tr><th><?php echo esc_html__('Allowed Endpoints', 'wp-secure-guard'); ?></th><td><textarea name="allowed_endpoints" rows="5" cols="60" placeholder="/wp/v2/posts*"></textarea></td></tr>
+                    <tr><th><?php echo esc_html__('Allowed IPs', 'wp-secure-guard'); ?></th><td><textarea name="allowed_ips" rows="4" cols="60" placeholder="12.34.56.78"></textarea></td></tr>
+                    <tr><th><?php echo esc_html__('Rate limit per minute', 'wp-secure-guard'); ?></th><td><input type="number" min="1" name="rate_limit_per_minute" value="100" /></td></tr>
+                    <tr><th><?php echo esc_html__('Expiration (UTC)', 'wp-secure-guard'); ?></th><td><input type="datetime-local" name="expires_at" /></td></tr>
                 </table>
-                <?php submit_button(__('Generate Token', 'secure-guard')); ?>
+                <?php submit_button(__('Generate Token', 'wp-secure-guard')); ?>
             </form>
             </div>
 
             <div class="card" style="max-width:1200px;padding:16px;margin-top:16px;">
-                <h2><?php echo esc_html__('Existing Tokens', 'secure-guard'); ?></h2>
+                <h2><?php echo esc_html__('Existing Tokens', 'wp-secure-guard'); ?></h2>
             <p class="description" style="margin-bottom:8px;">
-                <?php printf(esc_html__('Showing %1$d–%2$d of %3$d tokens.', 'secure-guard'), min($offset + 1, $total_tokens), min($offset + self::PER_PAGE, $total_tokens), $total_tokens); ?>
-                &nbsp;<button type="button" id="sg-toggle-revoked" class="button button-small" style="margin-left:8px;"><?php esc_html_e('Hide revoked', 'secure-guard'); ?></button>
+                <?php
+                // translators: 1: start index, 2: end index, 3: total number of tokens
+                printf(esc_html__('Showing %1$d–%2$d of %3$d tokens.', 'wp-secure-guard'), (int) ($offset + 1), (int) min($offset + self::PER_PAGE, $total_tokens), (int) $total_tokens);
+                ?>
+                &nbsp;<button type="button" id="sg-toggle-revoked" class="button button-small" style="margin-left:8px;"><?php esc_html_e('Hide revoked', 'wp-secure-guard'); ?></button>
             </p>
             <table class="widefat striped">
                 <thead><tr>
                     <th>ID</th>
-                    <th><?php echo esc_html__('Name', 'secure-guard'); ?></th>
-                    <th><?php echo esc_html__('Token', 'secure-guard'); ?></th>
-                    <th><?php echo esc_html__('Scopes / Policy', 'secure-guard'); ?></th>
-                    <th><?php echo esc_html__('Expires', 'secure-guard'); ?></th>
-                    <th><?php echo esc_html__('Created', 'secure-guard'); ?></th>
-                    <th><?php echo esc_html__('Last used', 'secure-guard'); ?></th>
-                    <th><?php echo esc_html__('Status', 'secure-guard'); ?></th>
-                    <th><?php echo esc_html__('Actions', 'secure-guard'); ?></th>
+                    <th><?php echo esc_html__('Name', 'wp-secure-guard'); ?></th>
+                    <th><?php echo esc_html__('Token', 'wp-secure-guard'); ?></th>
+                    <th><?php echo esc_html__('Scopes / Policy', 'wp-secure-guard'); ?></th>
+                    <th><?php echo esc_html__('Expires', 'wp-secure-guard'); ?></th>
+                    <th><?php echo esc_html__('Created', 'wp-secure-guard'); ?></th>
+                    <th><?php echo esc_html__('Last used', 'wp-secure-guard'); ?></th>
+                    <th><?php echo esc_html__('Status', 'wp-secure-guard'); ?></th>
+                    <th><?php echo esc_html__('Actions', 'wp-secure-guard'); ?></th>
                 </tr></thead>
                 <tbody>
                 <?php foreach ($rows as $row): ?>
@@ -382,30 +388,30 @@ final class Secure_Guard_Tokens_Page {
                             <?php if ($is_revealed && $display_token !== null): ?>
                                 <code style="word-break:break-all;font-size:11px;"><?php echo esc_html($display_token); ?></code><br />
                                 <span class="sg-action-row" style="margin-top:4px;">
-                                    <button type="button" class="button button-small sg-copy-btn" data-copy="<?php echo esc_attr($display_token); ?>"><?php esc_html_e('Copy', 'secure-guard'); ?></button>
-                                    <a class="button button-small" href="<?php echo esc_url($hide_url); ?>"><?php echo esc_html__('Hide', 'secure-guard'); ?></a>
+                                    <button type="button" class="button button-small sg-copy-btn" data-copy="<?php echo esc_attr($display_token); ?>"><?php esc_html_e('Copy', 'wp-secure-guard'); ?></button>
+                                    <a class="button button-small" href="<?php echo esc_url($hide_url); ?>"><?php echo esc_html__('Hide', 'wp-secure-guard'); ?></a>
                                 </span>
                             <?php elseif ($display_token !== null): ?>
                                 <code>••••••••••••••••••••</code><br />
-                                <a class="button button-small" href="<?php echo esc_url(wp_nonce_url(add_query_arg(['page' => 'secure-guard-tokens', 'reveal_token_id' => $row_id], admin_url('admin.php')), 'secure_guard_reveal_token_' . $row_id, 'reveal_nonce')); ?>"><?php echo esc_html__('Show', 'secure-guard'); ?></a>
+                                <a class="button button-small" href="<?php echo esc_url(wp_nonce_url(add_query_arg(['page' => 'secure-guard-tokens', 'reveal_token_id' => $row_id], admin_url('admin.php')), 'secure_guard_reveal_token_' . $row_id, 'reveal_nonce')); ?>"><?php echo esc_html__('Show', 'wp-secure-guard'); ?></a>
                             <?php else: ?>
-                                <em style="color:#777;"><?php echo esc_html__('Not available', 'secure-guard'); ?></em>
+                                <em style="color:#777;"><?php echo esc_html__('Not available', 'wp-secure-guard'); ?></em>
                             <?php endif; ?>
                         </td>
                         <td>
                             <span><?php echo esc_html((string) $row['scope']); ?></span>
                             <?php if ($has_policy): ?>
                             <details style="margin-top:4px;font-size:12px;">
-                                <summary style="cursor:pointer;color:#2271b1;"><?php esc_html_e('Policy', 'secure-guard'); ?></summary>
+                                <summary style="cursor:pointer;color:#2271b1;"><?php esc_html_e('Policy', 'wp-secure-guard'); ?></summary>
                                 <ul style="margin:4px 0 0 12px;padding:0;">
                                     <?php if (!empty($row['allowed_endpoints'])): ?>
-                                        <li><strong><?php esc_html_e('Endpoints:', 'secure-guard'); ?></strong><br /><code><?php echo esc_html((string) $row['allowed_endpoints']); ?></code></li>
+                                        <li><strong><?php esc_html_e('Endpoints:', 'wp-secure-guard'); ?></strong><br /><code><?php echo esc_html((string) $row['allowed_endpoints']); ?></code></li>
                                     <?php endif; ?>
                                     <?php if (!empty($row['allowed_ips'])): ?>
-                                        <li><strong><?php esc_html_e('IPs:', 'secure-guard'); ?></strong><br /><code><?php echo esc_html((string) $row['allowed_ips']); ?></code></li>
+                                        <li><strong><?php esc_html_e('IPs:', 'wp-secure-guard'); ?></strong><br /><code><?php echo esc_html((string) $row['allowed_ips']); ?></code></li>
                                     <?php endif; ?>
                                     <?php if (!empty($row['rate_limit_per_minute'])): ?>
-                                        <li><strong><?php esc_html_e('Rate limit:', 'secure-guard'); ?></strong> <?php echo esc_html((string) $row['rate_limit_per_minute']); ?> req/min</li>
+                                        <li><strong><?php esc_html_e('Rate limit:', 'wp-secure-guard'); ?></strong> <?php echo esc_html((string) $row['rate_limit_per_minute']); ?> req/min</li>
                                     <?php endif; ?>
                                 </ul>
                             </details>
@@ -413,13 +419,18 @@ final class Secure_Guard_Tokens_Page {
                         </td>
                         <td><?php echo esc_html((string) ($row['expires_at'] ?? '')); ?>
                             <?php if ($is_expired): ?>
-                                <span class="sg-expiry-label sg-expiry-label--soon"><?php esc_html_e('Expired', 'secure-guard'); ?></span>
+                                <span class="sg-expiry-label sg-expiry-label--soon"><?php esc_html_e('Expired', 'wp-secure-guard'); ?></span>
                             <?php elseif (!empty($row['expires_at'])): ?>
                                 <?php
                                     $days_left = (int) ceil((strtotime((string) $row['expires_at']) - time()) / DAY_IN_SECONDS);
                                     if ($days_left <= 7 && $days_left > 0):
                                 ?>
-                                    <span class="sg-expiry-label sg-expiry-label--soon"><?php printf(esc_html__('in %d d', 'secure-guard'), $days_left); ?></span>
+                                    <span class="sg-expiry-label sg-expiry-label--soon">
+                                        <?php
+                                        // translators: %d: number of days left
+                                        printf(esc_html__('in %d d', 'wp-secure-guard'), (int) $days_left);
+                                        ?>
+                                    </span>
                                 <?php endif; ?>
                             <?php endif; ?>
                         </td>
@@ -427,35 +438,35 @@ final class Secure_Guard_Tokens_Page {
                         <td><?php echo !empty($row['last_used_at']) ? esc_html((string) $row['last_used_at']) : '&mdash;'; ?></td>
                         <td>
                             <?php if ($is_expired): ?>
-                                <span class="sg-pill sg-pill--warning"><?php echo esc_html__('Expired', 'secure-guard'); ?></span>
+                                <span class="sg-pill sg-pill--warning"><?php echo esc_html__('Expired', 'wp-secure-guard'); ?></span>
                             <?php elseif ($is_active): ?>
-                                <span class="sg-pill sg-pill--allowed"><?php echo esc_html__('Active', 'secure-guard'); ?></span>
+                                <span class="sg-pill sg-pill--allowed"><?php echo esc_html__('Active', 'wp-secure-guard'); ?></span>
                             <?php else: ?>
-                                <span class="sg-pill sg-pill--revoked"><?php echo esc_html__('Revoked', 'secure-guard'); ?></span>
+                                <span class="sg-pill sg-pill--revoked"><?php echo esc_html__('Revoked', 'wp-secure-guard'); ?></span>
                             <?php endif; ?>
                         </td>
                         <td>
                             <div class="sg-action-row">
                                 <?php if ($is_active): ?>
-                                    <a class="button button-small" href="<?php echo esc_url(add_query_arg(['page' => 'secure-guard-tokens', 'edit_token_id' => $row_id], admin_url('admin.php'))); ?>"><?php esc_html_e('Edit', 'secure-guard'); ?></a>
+                                    <a class="button button-small" href="<?php echo esc_url(add_query_arg(['page' => 'secure-guard-tokens', 'edit_token_id' => $row_id], admin_url('admin.php'))); ?>"><?php esc_html_e('Edit', 'wp-secure-guard'); ?></a>
                                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                                         <input type="hidden" name="action" value="secure_guard_revoke_token" />
                                         <input type="hidden" name="token_id" value="<?php echo esc_attr((string) $row['id']); ?>" />
                                         <?php wp_nonce_field('secure_guard_revoke_token'); ?>
-                                        <?php submit_button(__('Revoke', 'secure-guard'), 'delete small', '', false); ?>
+                                        <?php submit_button(__('Revoke', 'wp-secure-guard'), 'delete small', '', false); ?>
                                     </form>
                                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                                         <input type="hidden" name="action" value="secure_guard_reissue_token" />
                                         <input type="hidden" name="token_id" value="<?php echo esc_attr((string) $row['id']); ?>" />
                                         <?php wp_nonce_field('secure_guard_reissue_token'); ?>
-                                        <?php submit_button(__('Re-issue JWT', 'secure-guard'), 'secondary small', '', false); ?>
+                                        <?php submit_button(__('Re-issue JWT', 'wp-secure-guard'), 'secondary small', '', false); ?>
                                     </form>
                                 <?php endif; ?>
-                                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('<?php echo esc_js(__('Delete this token permanently?', 'secure-guard')); ?>');">
+                                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('<?php echo esc_js(__('Delete this token permanently?', 'wp-secure-guard')); ?>');">
                                     <input type="hidden" name="action" value="secure_guard_delete_token" />
                                     <input type="hidden" name="token_id" value="<?php echo esc_attr((string) $row['id']); ?>" />
                                     <?php wp_nonce_field('secure_guard_delete_token'); ?>
-                                    <?php submit_button(__('Delete', 'secure-guard'), 'secondary small', '', false); ?>
+                                    <?php submit_button(__('Delete', 'wp-secure-guard'), 'secondary small', '', false); ?>
                                 </form>
                             </div>
                         </td>
@@ -464,23 +475,28 @@ final class Secure_Guard_Tokens_Page {
                     <tr>
                         <td colspan="9" style="background:#f9f9f9;padding:0;">
                             <div class="sg-edit-form">
-                                <h3 style="margin:0 0 12px;"><?php printf(esc_html__('Edit Token #%d — %s', 'secure-guard'), $row_id, esc_html((string) $row['name'])); ?></h3>
+                                <h3 style="margin:0 0 12px;">
+                                    <?php
+                                    // translators: 1: token ID, 2: token name
+                                    printf(esc_html__('Edit Token #%1$d — %2$s', 'wp-secure-guard'), (int) $row_id, esc_html((string) $row['name']));
+                                    ?>
+                                </h3>
                                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                                     <input type="hidden" name="action" value="secure_guard_edit_token" />
                                     <input type="hidden" name="token_id" value="<?php echo esc_attr((string) $row_id); ?>" />
                                     <?php wp_nonce_field('secure_guard_edit_token'); ?>
                                     <table class="form-table" role="presentation" style="margin:0;">
-                                        <tr><th><?php esc_html_e('Name', 'secure-guard'); ?></th><td><input type="text" name="name" class="regular-text" value="<?php echo esc_attr((string) $row['name']); ?>" required /></td></tr>
-                                        <tr><th><?php esc_html_e('Scopes', 'secure-guard'); ?></th><td><input type="text" name="scope" class="regular-text" value="<?php echo esc_attr((string) $row['scope']); ?>" /><p class="description">read_posts, upload_media, full_api_access</p></td></tr>
-                                        <tr><th><?php esc_html_e('Allowed Endpoints', 'secure-guard'); ?></th><td><textarea name="allowed_endpoints" rows="5" cols="60"><?php echo esc_textarea((string) ($row['allowed_endpoints'] ?? '')); ?></textarea></td></tr>
-                                        <tr><th><?php esc_html_e('Allowed IPs', 'secure-guard'); ?></th><td><textarea name="allowed_ips" rows="4" cols="60"><?php echo esc_textarea((string) ($row['allowed_ips'] ?? '')); ?></textarea></td></tr>
-                                        <tr><th><?php esc_html_e('Rate limit per minute', 'secure-guard'); ?></th><td><input type="number" min="1" name="rate_limit_per_minute" value="<?php echo esc_attr((string) ($row['rate_limit_per_minute'] ?? '')); ?>" /></td></tr>
-                                        <tr><th><?php esc_html_e('Expiration (UTC)', 'secure-guard'); ?></th><td><input type="datetime-local" name="expires_at" value="<?php $exp = $row['expires_at'] ?? ''; echo $exp ? esc_attr(gmdate('Y-m-d\TH:i', strtotime($exp))) : ''; ?>" /></td></tr>
+                                        <tr><th><?php esc_html_e('Name', 'wp-secure-guard'); ?></th><td><input type="text" name="name" class="regular-text" value="<?php echo esc_attr((string) $row['name']); ?>" required /></td></tr>
+                                        <tr><th><?php esc_html_e('Scopes', 'wp-secure-guard'); ?></th><td><input type="text" name="scope" class="regular-text" value="<?php echo esc_attr((string) $row['scope']); ?>" /><p class="description">read_posts, upload_media, full_api_access</p></td></tr>
+                                        <tr><th><?php esc_html_e('Allowed Endpoints', 'wp-secure-guard'); ?></th><td><textarea name="allowed_endpoints" rows="5" cols="60"><?php echo esc_textarea((string) ($row['allowed_endpoints'] ?? '')); ?></textarea></td></tr>
+                                        <tr><th><?php esc_html_e('Allowed IPs', 'wp-secure-guard'); ?></th><td><textarea name="allowed_ips" rows="4" cols="60"><?php echo esc_textarea((string) ($row['allowed_ips'] ?? '')); ?></textarea></td></tr>
+                                        <tr><th><?php esc_html_e('Rate limit per minute', 'wp-secure-guard'); ?></th><td><input type="number" min="1" name="rate_limit_per_minute" value="<?php echo esc_attr((string) ($row['rate_limit_per_minute'] ?? '')); ?>" /></td></tr>
+                                        <tr><th><?php esc_html_e('Expiration (UTC)', 'wp-secure-guard'); ?></th><td><input type="datetime-local" name="expires_at" value="<?php $exp = $row['expires_at'] ?? ''; echo $exp ? esc_attr(gmdate('Y-m-d\TH:i', strtotime($exp))) : ''; ?>" /></td></tr>
                                     </table>
                                     <p>
-                                        <?php submit_button(__('Save Changes', 'secure-guard'), 'primary', '', false); ?>
+                                        <?php submit_button(__('Save Changes', 'wp-secure-guard'), 'primary', '', false); ?>
                                         &nbsp;
-                                        <a class="button" href="<?php echo esc_url(add_query_arg(['page' => 'secure-guard-tokens'], admin_url('admin.php'))); ?>"><?php esc_html_e('Cancel', 'secure-guard'); ?></a>
+                                        <a class="button" href="<?php echo esc_url(add_query_arg(['page' => 'secure-guard-tokens'], admin_url('admin.php'))); ?>"><?php esc_html_e('Cancel', 'wp-secure-guard'); ?></a>
                                     </p>
                                 </form>
                             </div>
@@ -495,11 +511,16 @@ final class Secure_Guard_Tokens_Page {
             <div class="tablenav bottom" style="margin-top:12px;">
                 <div class="tablenav-pages" style="display:flex;align-items:center;gap:8px;">
                     <?php if ($current_page > 1): ?>
-                        <a class="button" href="<?php echo esc_url(add_query_arg('paged', $current_page - 1, $tokens_base_url)); ?>">&laquo; <?php esc_html_e('Previous', 'secure-guard'); ?></a>
+                        <a class="button" href="<?php echo esc_url(add_query_arg('paged', $current_page - 1, $tokens_base_url)); ?>">&laquo; <?php esc_html_e('Previous', 'wp-secure-guard'); ?></a>
                     <?php endif; ?>
-                    <span class="paging-input"><?php printf(esc_html__('Page %1$d of %2$d', 'secure-guard'), $current_page, $total_pages); ?></span>
+                    <span class="paging-input">
+                        <?php
+                        // translators: 1: current page, 2: total pages
+                        printf(esc_html__('Page %1$d of %2$d', 'wp-secure-guard'), (int) $current_page, (int) $total_pages);
+                        ?>
+                    </span>
                     <?php if ($current_page < $total_pages): ?>
-                        <a class="button" href="<?php echo esc_url(add_query_arg('paged', $current_page + 1, $tokens_base_url)); ?>"><?php esc_html_e('Next', 'secure-guard'); ?> &raquo;</a>
+                        <a class="button" href="<?php echo esc_url(add_query_arg('paged', $current_page + 1, $tokens_base_url)); ?>"><?php esc_html_e('Next', 'wp-secure-guard'); ?> &raquo;</a>
                     <?php endif; ?>
                 </div>
             </div>
@@ -508,8 +529,8 @@ final class Secure_Guard_Tokens_Page {
             </div>
 
             <div class="card" style="max-width:1200px;padding:16px;margin-top:16px;">
-                <h2 style="margin-top:0;"><?php echo esc_html__('Usage & Verification', 'secure-guard'); ?></h2>
-                <p class="description"><?php echo esc_html__('Replace SITE and TOKEN values. Without token expect 403; with valid token expect route-specific responses.', 'secure-guard'); ?></p>
+                <h2 style="margin-top:0;"><?php echo esc_html__('Usage & Verification', 'wp-secure-guard'); ?></h2>
+                <p class="description"><?php echo esc_html__('Replace SITE and TOKEN values. Without token expect 403; with valid token expect route-specific responses.', 'wp-secure-guard'); ?></p>
                 <pre style="white-space:pre-wrap;"><?php echo esc_html("# Without token (expect 403)\ncurl -i https://SITE/wp-json/wp/v2/posts\n\n# With token to non-sensitive route\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/posts\n\n# With token to sensitive route (requires full_api_access when enabled)\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/users"); ?></pre>
             </div>
         </div>
@@ -524,10 +545,10 @@ final class Secure_Guard_Tokens_Page {
                         if (!text) return;
                         if (navigator.clipboard && navigator.clipboard.writeText) {
                             navigator.clipboard.writeText(text).then(function() {
-                                btn.textContent = '<?php echo esc_js(__('Copied!', 'secure-guard')); ?>';
+                                btn.textContent = '<?php echo esc_js(__('Copied!', 'wp-secure-guard')); ?>';
                                 btn.classList.add('copied');
                                 setTimeout(function() {
-                                    btn.textContent = '<?php echo esc_js(__('Copy', 'secure-guard')); ?>';
+                                    btn.textContent = '<?php echo esc_js(__('Copy', 'wp-secure-guard')); ?>';
                                     btn.classList.remove('copied');
                                 }, 2000);
                             });
@@ -540,10 +561,10 @@ final class Secure_Guard_Tokens_Page {
                             ta.select();
                             try { document.execCommand('copy'); } catch(e) {}
                             document.body.removeChild(ta);
-                            btn.textContent = '<?php echo esc_js(__('Copied!', 'secure-guard')); ?>';
+                            btn.textContent = '<?php echo esc_js(__('Copied!', 'wp-secure-guard')); ?>';
                             btn.classList.add('copied');
                             setTimeout(function() {
-                                btn.textContent = '<?php echo esc_js(__('Copy', 'secure-guard')); ?>';
+                                btn.textContent = '<?php echo esc_js(__('Copy', 'wp-secure-guard')); ?>';
                                 btn.classList.remove('copied');
                             }, 2000);
                         }
@@ -559,8 +580,8 @@ final class Secure_Guard_Tokens_Page {
                         hidden = !hidden;
                         revokedRows.forEach(function(r) { r.style.display = hidden ? 'none' : ''; });
                         toggleBtn.textContent = hidden
-                            ? '<?php echo esc_js(__('Show revoked', 'secure-guard')); ?>'
-                            : '<?php echo esc_js(__('Hide revoked', 'secure-guard')); ?>';
+                            ? '<?php echo esc_js(__('Show revoked', 'wp-secure-guard')); ?>'
+                            : '<?php echo esc_js(__('Hide revoked', 'wp-secure-guard')); ?>';
                     });
                 }
             });
@@ -607,7 +628,7 @@ final class Secure_Guard_Tokens_Page {
 
     public function handle_export(): void {
         if (!current_user_can('manage_options')) {
-            wp_die(__('Unauthorized', 'secure-guard'));
+            wp_die(esc_html__('Unauthorized', 'wp-secure-guard'));
         }
 
         check_admin_referer('sg_export_tokens');
@@ -615,7 +636,7 @@ final class Secure_Guard_Tokens_Page {
         $tokens = $this->tokens->all_tokens(1000, 0); // Export up to 1000 tokens
         
         header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename=secure-guard-tokens-' . date('Y-m-d') . '.csv');
+        header('Content-Disposition: attachment; filename=secure-guard-tokens-' . gmdate('Y-m-d') . '.csv');
 
         $output = fopen('php://output', 'w');
         fputcsv($output, ['ID', 'Name', 'Type', 'Scope', 'Allowed Endpoints', 'Allowed IPs', 'Rate Limit', 'Expires', 'Last Used', 'Created', 'Status']);
@@ -639,6 +660,7 @@ final class Secure_Guard_Tokens_Page {
                 $status
             ]);
         }
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
         fclose($output);
         exit;
     }

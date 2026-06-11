@@ -226,7 +226,7 @@ final class Secure_Guard_Traffic_Firewall {
         $this->logs->log($endpoint, $method, 'BLOCKED', $reason, ['ip' => $ip]);
 
         status_header($status);
-        wp_die(esc_html__('Forbidden', 'secure-guard'), esc_html__('Forbidden', 'secure-guard'), ['response' => $status]);
+        wp_die(esc_html__('Forbidden', 'wp-secure-guard'), esc_html__('Forbidden', 'wp-secure-guard'), ['response' => $status]);
     }
 
     private function is_sensitive_path_request(): bool {

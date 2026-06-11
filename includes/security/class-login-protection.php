@@ -151,7 +151,7 @@ final class Secure_Guard_Login_Protection {
         if ($remaining > 0 && $remaining <= 3) {
             $warning = sprintf(
                 '<div class="notice notice-warning inline"><p>%s</p></div>',
-                sprintf(esc_html__('Caution: %d attempts remaining before temporary lockout.', 'secure-guard'), $remaining)
+                sprintf(esc_html__('Caution: %d attempts remaining before temporary lockout.', 'wp-secure-guard'), $remaining)
             );
             return $warning . $message;
         }
@@ -209,8 +209,8 @@ final class Secure_Guard_Login_Protection {
             <div id="sg-login-toast">
                 <div class="sg-toast-icon">⚠️</div>
                 <div class="sg-toast-content">
-                    <strong><?php esc_html_e('Security Warning', 'secure-guard'); ?></strong><br>
-                    <?php printf(esc_html__('You have %d login attempts remaining before a lockout.', 'secure-guard'), $remaining); ?>
+                    <strong><?php esc_html_e('Security Warning', 'wp-secure-guard'); ?></strong><br>
+                    <?php printf(esc_html__('You have %d login attempts remaining before a lockout.', 'wp-secure-guard'), $remaining); ?>
                 </div>
                 <div class="sg-toast-close" onclick="this.parentElement.remove()">&times;</div>
             </div>
@@ -257,6 +257,6 @@ final class Secure_Guard_Login_Protection {
     private function deny_login(string $ip, string $reason): void {
         $this->logs->log('/wp-login.php', 'POST', 'BLOCKED', $reason, ['ip' => $ip]);
         status_header(429);
-        wp_die(esc_html__('Too many failed login attempts. Try again later.', 'secure-guard'), esc_html__('Login blocked', 'secure-guard'), ['response' => 429]);
+        wp_die(esc_html__('Too many failed login attempts. Try again later.', 'wp-secure-guard'), esc_html__('Login blocked', 'wp-secure-guard'), ['response' => 429]);
     }
 }

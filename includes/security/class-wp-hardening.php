@@ -60,7 +60,7 @@ final class Secure_Guard_WP_Hardening {
     }
 
     public function hide_login_errors_callback(): string {
-        return esc_html__('Error: Invalid login credentials.', 'secure-guard');
+        return esc_html__('Error: Invalid login credentials.', 'wp-secure-guard');
     }
 
     public function disable_pingbacks(array $methods): array {
@@ -156,7 +156,7 @@ final class Secure_Guard_WP_Hardening {
         $this->logs->log($path, $method, 'BLOCKED', 'WordPress fingerprint probe blocked', []);
 
         status_header(403);
-        wp_die(esc_html__('Forbidden', 'secure-guard'), esc_html__('Forbidden', 'secure-guard'), ['response' => 403]);
+        wp_die(esc_html__('Forbidden', 'wp-secure-guard'), esc_html__('Forbidden', 'wp-secure-guard'), ['response' => 403]);
     }
 
     public static function write_htaccess_protection(): void {

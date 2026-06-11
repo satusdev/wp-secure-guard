@@ -73,7 +73,7 @@ final class Secure_Guard_File_Integrity_Monitor {
      */
     public function handle_reset_baseline(): void {
         if (!current_user_can('manage_options')) {
-            wp_die(esc_html__('Unauthorized', 'secure-guard'));
+            wp_die(esc_html__('Unauthorized', 'wp-secure-guard'));
         }
         check_admin_referer('sg_reset_integrity_baseline');
 

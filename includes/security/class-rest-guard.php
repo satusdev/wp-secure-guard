@@ -57,7 +57,7 @@ final class Secure_Guard_REST_Guard {
         // Reputation check - Block if IP is in BLOCKED tier
         if ($this->reputation_engine->get_tier($ip) === Secure_Guard_Reputation_Engine::TIER_BLOCKED) {
             $this->logs->log($route, $method, 'BLOCKED', 'IP blocked by reputation', ['ip' => $ip]);
-            return new WP_Error('secure_guard_reputation_blocked', __('Access denied by security engine.', 'secure-guard'), ['status' => 403]);
+            return new WP_Error('secure_guard_reputation_blocked', __('Access denied by security engine.', 'wp-secure-guard'), ['status' => 403]);
         }
 
         // Logged-in browser sessions use WP cookie auth — bypass JWT enforcement
@@ -74,7 +74,7 @@ final class Secure_Guard_REST_Guard {
         if (!$token_row) {
             $this->reputation_engine->add_score($ip, 5, 'Invalid JWT attempt');
             $this->logs->log($route, $method, 'BLOCKED', 'Missing or invalid JWT token', ['ip' => $ip]);
-            return new WP_Error('secure_guard_invalid_token', __('REST API requires a valid JWT token.', 'secure-guard'), ['status' => 403]);
+            return new WP_Error('secure_guard_invalid_token', __('REST API requires a valid JWT token.', 'wp-secure-guard'), ['status' => 403]);
         }
 
         // Sensitivity scoring and reputation feed
@@ -88,18 +88,18 @@ final class Secure_Guard_REST_Guard {
             if (!$is_admin_scope) {
                 $this->reputation_engine->add_score($ip, 10, 'Sensitive endpoint unauthorized access attempt');
                 $this->logs->log($route, $method, 'BLOCKED', 'Sensitive endpoint blocked for JWT scope', ['token_id' => $token_row['id'] ?? 0, 'ip' => $ip]);
-                return new WP_Error('secure_guard_sensitive_blocked', __('Endpoint blocked.', 'secure-guard'), ['status' => 403]);
+                return new WP_Error('secure_guard_sensitive_blocked', __('Endpoint blocked.', 'wp-secure-guard'), ['status' => 403]);
             }
         }
 
         if (!$this->token_manager->route_allowed($token_row, $route)) {
             $this->logs->log($route, $method, 'BLOCKED', 'Route not allowed for token', ['token_id' => $token_row['id'] ?? 0, 'ip' => $ip]);
-            return new WP_Error('secure_guard_route_forbidden', __('Token is not allowed for this endpoint.', 'secure-guard'), ['status' => 403]);
+            return new WP_Error('secure_guard_route_forbidden', __('Token is not allowed for this endpoint.', 'wp-secure-guard'), ['status' => 403]);
         }
 
         if (!$this->ip_whitelist->is_allowed($ip, (string) ($token_row['allowed_ips'] ?? ''))) {
             $this->logs->log($route, $method, 'BLOCKED', 'IP not allowed', ['token_id' => $token_row['id'] ?? 0, 'ip' => $ip]);
-            return new WP_Error('secure_guard_ip_forbidden', __('IP is not allowed.', 'secure-guard'), ['status' => 403]);
+            return new WP_Error('secure_guard_ip_forbidden', __('IP is not allowed.', 'wp-secure-guard'), ['status' => 403]);
         }
 
         // Multi-dimensional rate limiting
@@ -129,7 +129,7 @@ final class Secure_Guard_REST_Guard {
             if (!$this->rate_limit->allow($subject, $scaled_limit)) {
                 $this->reputation_engine->add_score($ip, 5, 'Rate limit exceeded (' . $subject . ')');
                 $this->logs->log($route, $method, 'BLOCKED', 'Rate limit exceeded: ' . $subject, ['token_id' => $token_id, 'ip' => $ip]);
-                return new WP_Error('secure_guard_rate_limit', __('Rate limit exceeded.', 'secure-guard'), ['status' => 429]);
+                return new WP_Error('secure_guard_rate_limit', __('Rate limit exceeded.', 'wp-secure-guard'), ['status' => 429]);
             }
         }
 
@@ -149,7 +149,7 @@ final class Secure_Guard_REST_Guard {
         $route = (string) $request->get_route();
         
         if ($this->lock_state->is_locked() && !$this->lock_state->is_route_allowed_in_lockdown($route)) {
-            return new WP_Error('secure_guard_locked', __('System is in emergency lockdown mode.', 'secure-guard'), ['status' => 503]);
+            return new WP_Error('secure_guard_locked', __('System is in emergency lockdown mode.', 'wp-secure-guard'), ['status' => 503]);
         }
 
         if ($route === '') {
@@ -161,7 +161,7 @@ final class Secure_Guard_REST_Guard {
 
         if ($this->endpoint_blocker->is_protected_path_request($request_uri)) {
             $this->logs->log($request_uri, $method, 'BLOCKED', 'Protected path request', []);
-            return new WP_Error('secure_guard_path_blocked', __('Forbidden.', 'secure-guard'), ['status' => 403]);
+            return new WP_Error('secure_guard_path_blocked', __('Forbidden.', 'wp-secure-guard'), ['status' => 403]);
         }
 
         return $response;
@@ -170,7 +170,7 @@ final class Secure_Guard_REST_Guard {
     public function final_gate($response, WP_REST_Server $server, WP_REST_Request $request) {
         // Final gatekeeper logic - could re-verify auth or state
         if ($this->lock_state->is_locked() && !is_user_logged_in()) {
-             return new WP_Error('secure_guard_locked_final', __('Access denied.', 'secure-guard'), ['status' => 403]);
+             return new WP_Error('secure_guard_locked_final', __('Access denied.', 'wp-secure-guard'), ['status' => 403]);
         }
         return $response;
     }

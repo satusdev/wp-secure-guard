@@ -131,6 +131,6 @@ final class Secure_Guard_Admin_Area_Protector {
         $this->logs->log($endpoint, $method, 'BLOCKED', $reason, ['ip' => $ip]);
 
         status_header($status);
-        wp_die(esc_html__('Forbidden', 'secure-guard'), esc_html__('Forbidden', 'secure-guard'), ['response' => $status]);
+        wp_die(esc_html__('Forbidden', 'wp-secure-guard'), esc_html__('Forbidden', 'wp-secure-guard'), ['response' => $status]);
     }
 }

@@ -7,7 +7,7 @@
  * Requires PHP: 8.1
  * Author: satusdev
  * License: GPL-2.0-or-later
- * Text Domain: secure-guard
+ * Text Domain: wp-secure-guard
  */
 
 if (!defined('ABSPATH')) {
