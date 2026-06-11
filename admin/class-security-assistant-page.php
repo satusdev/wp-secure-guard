@@ -291,7 +291,7 @@ final class Secure_Guard_Security_Assistant_Page {
 
         $snapshot = get_option(Secure_Guard_Security_Presets::PREVIOUS_SETTINGS_OPTION, []);
         if (is_array($snapshot) && isset($snapshot['settings']) && is_array($snapshot['settings'])) {
-            echo '<div class="card sg-lockdown-card" style="margin-top:16px;">';
+            echo '<div class="card sg-lockdown-card">';
             echo '<h3>' . esc_html__('Preset Recovery', 'wp-secure-guard') . '</h3>';
             echo '<p class="description">' . esc_html__('Restore the settings snapshot captured before the last preset application.', 'wp-secure-guard') . '</p>';
             echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" onsubmit="return confirm(\'' . esc_js(__('Restore previous Secure Guard settings?', 'wp-secure-guard')) . '\')">';

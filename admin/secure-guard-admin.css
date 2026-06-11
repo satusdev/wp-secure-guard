@@ -1,189 +1,325 @@
 /* Secure Guard — Admin UI Stylesheet */
 
 /* =========================================================
-   Custom properties
+   Custom properties & Modern Design Tokens
    ========================================================= */
 .secure-guard-ui {
-	--sg-content-width: 1200px;
-	--sg-border-radius: 8px;
-	--sg-gap: 16px;
+	/* Color Palette */
+	--sg-primary: #3b82f6;         /* Modern Indigo/Blue */
+	--sg-primary-hover: #2563eb;
+	--sg-primary-light: #eff6ff;
+	--sg-success: #10b981;         /* Emerald Green */
+	--sg-success-light: #ecfdf5;
+	--sg-warning: #f59e0b;         /* Amber Warning */
+	--sg-warning-light: #fffbeb;
+	--sg-danger: #ef4444;          /* Rose/Red Danger */
+	--sg-danger-light: #fef2f2;
+	--sg-info: #06b6d4;            /* Cyan Info */
+	--sg-info-light: #ecfeff;
+	--sg-text-dark: #0f172a;       /* Slate 900 */
+	--sg-text-muted: #64748b;      /* Slate 500 */
+	--sg-bg-card: #ffffff;
+	--sg-border-color: #e2e8f0;    /* Slate 200 */
+	
+	/* Layout & Spacing */
+	--sg-content-width: 100%;      /* Full width */
+	--sg-border-radius: 12px;
+	--sg-border-radius-sm: 8px;
+	--sg-gap: 20px;
+	--sg-transition: all 0.2s ease-in-out;
 }
 
 /* =========================================================
-   Layout helpers
+   Typography & Headers
    ========================================================= */
-.secure-guard-ui .card {
-	border-radius: var(--sg-border-radius);
-	max-width: var(--sg-content-width);
+.secure-guard-ui h1,
+.secure-guard-ui h2,
+.secure-guard-ui h3 {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+	color: var(--sg-text-dark);
 }
 
-/* Overrides the different max-widths used inline across pages */
-.secure-guard-ui .sg-content-wide {
-	max-width: 1400px;
-}
-.secure-guard-ui .sg-content-narrow {
-	max-width: 900px;
-}
-
-.secure-guard-ui .sg-settings-card {
-	padding: 0 18px 18px;
-	margin-top: 0;
-	border-top-left-radius: 0;
+.secure-guard-ui h1 {
+	font-size: 26px;
+	font-weight: 700;
+	letter-spacing: -0.5px;
+	margin-bottom: 8px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
 }
 
-.secure-guard-ui .card h2 {
-	margin-top: 0;
-	margin-bottom: 12px;
+.secure-guard-ui h2 {
+	font-size: 18px;
+	font-weight: 600;
+	margin-top: 24px;
+	margin-bottom: 16px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 .secure-guard-ui .description {
+	font-size: 14px;
+	color: var(--sg-text-muted);
+	line-height: 1.5;
+	margin-top: 0;
+	margin-bottom: 20px;
 	max-width: 1000px;
 }
 
 /* =========================================================
-   Metric card grid — used on Dashboard
+   Layout helpers & Card Design
    ========================================================= */
-.sg-docs-layout {
-	display: grid;
-	grid-template-columns: 240px 1fr;
-	gap: 24px;
-	align-items: start;
-	margin-top: 20px;
+.secure-guard-ui .card {
+	background: var(--sg-bg-card) !important;
+	border: 1px solid var(--sg-border-color) !important;
+	border-radius: var(--sg-border-radius) !important;
+	padding: 24px !important;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+	transition: var(--sg-transition) !important;
+	margin-bottom: 24px !important;
+	margin-top: 0 !important;
+	max-width: 100% !important; /* Force full-width */
+	box-sizing: border-box !important;
 }
 
-.secure-guard-ui .sg-docs-sidebar {
-	position: sticky;
-	top: 50px;
-	background: #fff;
-	padding: 15px;
-	border: 1px solid #c3c4c7;
-	border-radius: var(--sg-border-radius);
+.secure-guard-ui .card:hover {
+	box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05) !important;
+	border-color: #cbd5e1 !important;
 }
 
-.secure-guard-ui .sg-docs-nav ul {
-	margin: 0;
-	padding: 0;
-	list-style: none;
+.secure-guard-ui .card h2 {
+	font-size: 18px;
+	font-weight: 600;
+	margin-top: 0;
+	margin-bottom: 16px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--sg-border-color);
 }
 
-.secure-guard-ui .sg-docs-nav li {
-	margin-bottom: 8px;
+.secure-guard-ui .sg-settings-card {
+	padding: 24px !important;
+	border-top-left-radius: 0 !important;
+	margin-top: -21px !important;
 }
 
-.secure-guard-ui .sg-docs-nav a {
-	display: block;
-	padding: 5px 10px;
-	border-radius: 4px;
-	color: #1d2327;
-	font-weight: 500;
-	text-decoration: none;
+/* =========================================================
+   Buttons
+   ========================================================= */
+.secure-guard-ui .button {
+	border-radius: var(--sg-border-radius-sm) !important;
+	padding: 6px 14px !important;
+	font-weight: 600 !important;
+	font-size: 13px !important;
+	height: auto !important;
+	line-height: 1.4 !important;
+	transition: var(--sg-transition) !important;
+	border: 1px solid var(--sg-border-color) !important;
+	background: #fff !important;
+	color: var(--sg-text-dark) !important;
+	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
-.secure-guard-ui .sg-docs-nav a:hover,
-.secure-guard-ui .sg-docs-nav a:focus {
-	background: #f0f0f1;
-	color: #2271b1;
+.secure-guard-ui .button:hover,
+.secure-guard-ui .button:focus {
+	background: #f8fafc !important;
+	border-color: #cbd5e1 !important;
+	color: var(--sg-primary) !important;
 }
 
-.secure-guard-ui .sg-docs-content .card {
-	padding: 24px;
-	margin-bottom: 24px;
-	border-top: 4px solid #2271b1;
+.secure-guard-ui .button-primary {
+	background: var(--sg-primary) !important;
+	border-color: var(--sg-primary) !important;
+	color: #fff !important;
+	box-shadow: 0 1px 2px 0 rgba(37, 99, 235, 0.2) !important;
 }
 
-.secure-guard-ui .sg-docs-content pre {
-	overflow-x: auto;
-	padding: 12px;
-	border-radius: 4px;
-	background: #272822;
-	color: #f8f8f2;
+.secure-guard-ui .button-primary:hover,
+.secure-guard-ui .button-primary:focus {
+	background: var(--sg-primary-hover) !important;
+	border-color: var(--sg-primary-hover) !important;
+	box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2) !important;
 }
 
+.secure-guard-ui .button-secondary {
+	color: var(--sg-primary) !important;
+	border-color: var(--sg-primary) !important;
+	background: transparent !important;
+}
+
+.secure-guard-ui .button-secondary:hover,
+.secure-guard-ui .button-secondary:focus {
+	background: var(--sg-primary-light) !important;
+	color: var(--sg-primary-hover) !important;
+}
+
+.secure-guard-ui .button.delete,
+.secure-guard-ui .button.button-link-delete {
+	color: var(--sg-danger) !important;
+	border-color: var(--sg-danger) !important;
+}
+
+.secure-guard-ui .button.delete:hover,
+.secure-guard-ui .button.delete:focus {
+	background: var(--sg-danger-light) !important;
+	color: var(--sg-danger) !important;
+	border-color: var(--sg-danger) !important;
+}
+
+/* =========================================================
+   Metric Cards Grid
+   ========================================================= */
 .secure-guard-ui .sg-metric-grid {
 	display: grid;
-	grid-template-columns: repeat(3, 1fr);
+	grid-template-columns: repeat(4, 1fr);
 	gap: var(--sg-gap);
-	max-width: var(--sg-content-width);
-	margin-bottom: var(--sg-gap);
+	margin-bottom: 24px;
+	max-width: 100% !important;
 }
 
 .secure-guard-ui .sg-metric-card {
-	background: #fff;
-	border: 1px solid #c3c4c7;
+	background: var(--sg-bg-card);
+	border: 1px solid var(--sg-border-color);
 	border-radius: var(--sg-border-radius);
-	border-left-width: 4px;
-	border-left-color: #c3c4c7;
-	padding: 18px 20px;
+	padding: 20px;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	justify-content: space-between;
+	min-height: 105px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+	transition: var(--sg-transition);
+	border-left: 4px solid var(--sg-border-color);
+	position: relative;
+	overflow: hidden;
+	box-sizing: border-box;
+}
+
+.secure-guard-ui .sg-metric-card:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .secure-guard-ui .sg-metric-card--alert {
-	border-left-color: #842029;
-	background: #fff8f8;
+	border-left-color: var(--sg-danger);
+	background: linear-gradient(to right, #fff, var(--sg-danger-light));
 }
 
 .secure-guard-ui .sg-metric-card--ok {
-	border-left-color: #0f5132;
+	border-left-color: var(--sg-success);
+	background: linear-gradient(to right, #fff, var(--sg-success-light));
+}
+
+.secure-guard-ui .sg-metric-card--warning {
+	border-left-color: var(--sg-warning);
+	background: linear-gradient(to right, #fff, var(--sg-warning-light));
 }
 
 .secure-guard-ui .sg-metric-card__header {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	color: #646970;
-	font-size: 12px;
+	color: var(--sg-text-muted);
+	font-size: 11px;
 	font-weight: 600;
 	text-transform: uppercase;
-	letter-spacing: 0.4px;
+	letter-spacing: 0.5px;
 }
 
 .secure-guard-ui .sg-metric-card__header .dashicons {
 	width: 16px;
 	height: 16px;
 	font-size: 16px;
+	color: var(--sg-text-muted);
+}
+
+.secure-guard-ui .sg-metric-card--alert .sg-metric-card__header .dashicons {
+	color: var(--sg-danger);
+}
+
+.secure-guard-ui .sg-metric-card--ok .sg-metric-card__header .dashicons {
+	color: var(--sg-success);
 }
 
 .secure-guard-ui .sg-metric-card__number {
-	font-size: 32px;
+	font-size: 28px;
 	font-weight: 700;
-	line-height: 1.1;
-	color: #1d2327;
+	line-height: 1.2;
+	color: var(--sg-text-dark);
+	margin: 8px 0;
 }
 
 .secure-guard-ui .sg-metric-card--alert .sg-metric-card__number {
-	color: #842029;
+	color: var(--sg-danger);
 }
 
 .secure-guard-ui .sg-metric-card__sub {
-	font-size: 11px;
-	color: #646970;
+	font-size: 12px;
+	color: var(--sg-text-muted);
+}
+
+.secure-guard-ui .sg-metric-card__sub a {
+	color: var(--sg-primary);
+	text-decoration: none;
+	font-weight: 600;
+	transition: var(--sg-transition);
+}
+
+.secure-guard-ui .sg-metric-card__sub a:hover {
+	color: var(--sg-primary-hover);
+	text-decoration: underline;
 }
 
 /* =========================================================
-   Security Assistant
+   Security Assistant / Presets
    ========================================================= */
 .secure-guard-ui .sg-preset-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 	gap: var(--sg-gap);
-	max-width: 1400px;
+	max-width: 100% !important;
+	margin-bottom: 24px;
 }
 
 .secure-guard-ui .sg-preset-card {
-	padding: 18px;
-	border-left: 4px solid #c3c4c7;
+	padding: 24px !important;
+	border-left: 4px solid var(--sg-border-color) !important;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
 }
 
 .secure-guard-ui .sg-preset-card--active {
-	border-left-color: #0f5132;
-	background: #f8fffb;
+	border-left-color: var(--sg-success) !important;
+	background: linear-gradient(to bottom, #ffffff, var(--sg-success-light)) !important;
+	box-shadow: 0 4px 12px rgba(16, 185, 129, 0.08) !important;
+}
+
+.secure-guard-ui .sg-preset-card h3 {
+	font-size: 18px;
+	font-weight: 600;
+	margin-top: 0;
+	margin-bottom: 12px;
+}
+
+.secure-guard-ui .sg-preset-card p {
+	margin-top: 0;
+	margin-bottom: 8px;
+	font-size: 13px;
+}
+
+.secure-guard-ui .sg-preset-card .description {
+	font-size: 13px;
+	margin-bottom: 16px;
+}
+
+.secure-guard-ui .sg-preset-card form {
+	margin-top: auto;
 }
 
 .secure-guard-ui .sg-lockdown-card,
 .secure-guard-ui .sg-recommendations-card {
-	padding: 18px;
+	padding: 24px !important;
 }
 
 .secure-guard-ui .sg-recommendation-list {
@@ -195,34 +331,149 @@
 .secure-guard-ui .sg-recommendation-item {
 	display: flex;
 	justify-content: space-between;
-	align-items: flex-start;
-	gap: 16px;
-	padding: 12px;
-	border: 1px solid #dcdcde;
-	border-radius: 6px;
+	align-items: center;
+	gap: 20px;
+	padding: 16px;
+	border: 1px solid var(--sg-border-color);
+	border-radius: var(--sg-border-radius-sm);
 	background: #fff;
+	transition: var(--sg-transition);
+}
+
+.secure-guard-ui .sg-recommendation-item:hover {
+	border-color: #cbd5e1;
+	background: #f8fafc;
+}
+
+.secure-guard-ui .sg-recommendation-item > div {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.secure-guard-ui .sg-recommendation-item .description {
+	margin: 0;
+	font-size: 13px;
 }
 
 /* =========================================================
    Tables
    ========================================================= */
-.secure-guard-ui .widefat td,
-.secure-guard-ui .widefat th {
-	padding: 9px 12px;
-	vertical-align: top;
+.secure-guard-ui table.widefat {
+	border: none !important;
+	box-shadow: none !important;
+	background: transparent !important;
+	border-collapse: separate !important;
+	border-spacing: 0 !important;
+	width: 100% !important;
+	margin: 12px 0 !important;
+}
+
+.secure-guard-ui table.widefat thead th {
+	background: #f8fafc !important;
+	border-bottom: 2px solid var(--sg-border-color) !important;
+	color: var(--sg-text-dark) !important;
+	font-weight: 600 !important;
+	text-transform: uppercase !important;
+	font-size: 11px !important;
+	letter-spacing: 0.5px !important;
+	padding: 12px 16px !important;
+}
+
+.secure-guard-ui table.widefat tbody td {
+	padding: 14px 16px !important;
+	border-bottom: 1px solid var(--sg-border-color) !important;
+	color: var(--sg-text-dark) !important;
+	font-size: 13px !important;
+	vertical-align: middle !important;
+}
+
+.secure-guard-ui table.widefat tbody tr {
+	transition: var(--sg-transition) !important;
+}
+
+.secure-guard-ui table.widefat tbody tr:hover {
+	background: #f8fafc !important;
+}
+
+.secure-guard-ui table.widefat tbody tr:last-child td {
+	border-bottom: none !important;
+}
+
+.secure-guard-ui table.widefat.striped tbody tr:nth-of-type(odd) {
+	background-color: #fafafa !important;
+}
+
+.secure-guard-ui table.widefat.striped tbody tr:nth-of-type(odd):hover {
+	background-color: #f8fafc !important;
 }
 
 .secure-guard-ui .form-table th {
 	width: 260px;
-	padding-top: 14px;
-	font-weight: 500;
+	padding: 20px 16px 20px 0 !important;
+	font-weight: 600 !important;
+	font-size: 14px !important;
+	color: var(--sg-text-dark) !important;
+	border-bottom: 1px solid #f1f5f9 !important;
+	vertical-align: top !important;
 }
 
 .secure-guard-ui .form-table td {
-	padding-top: 10px;
+	padding: 16px 0 !important;
+	border-bottom: 1px solid #f1f5f9 !important;
+	vertical-align: top !important;
 }
 
-/* Row state — used on tokens table */
+.secure-guard-ui .form-table tr:last-child th,
+.secure-guard-ui .form-table tr:last-child td {
+	border-bottom: none !important;
+}
+
+.secure-guard-ui .form-table input[type="text"],
+.secure-guard-ui .form-table input[type="number"],
+.secure-guard-ui .form-table input[type="password"],
+.secure-guard-ui .form-table textarea,
+.secure-guard-ui .form-table select {
+	border: 1px solid var(--sg-border-color) !important;
+	border-radius: var(--sg-border-radius-sm) !important;
+	padding: 8px 12px !important;
+	background: #fff !important;
+	color: var(--sg-text-dark) !important;
+	transition: var(--sg-transition) !important;
+	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.secure-guard-ui .form-table input[type="text"]:focus,
+.secure-guard-ui .form-table input[type="number"]:focus,
+.secure-guard-ui .form-table input[type="password"]:focus,
+.secure-guard-ui .form-table textarea:focus,
+.secure-guard-ui .form-table select:focus {
+	border-color: var(--sg-primary) !important;
+	outline: none !important;
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+}
+
+.secure-guard-ui .form-table input[type="checkbox"] {
+	border: 1px solid var(--sg-border-color) !important;
+	border-radius: 4px !important;
+	width: 18px !important;
+	height: 18px !important;
+	margin-top: 1px !important;
+	cursor: pointer !important;
+	transition: var(--sg-transition) !important;
+}
+
+.secure-guard-ui .form-table input[type="checkbox"]:checked {
+	background: var(--sg-primary) !important;
+	border-color: var(--sg-primary) !important;
+}
+
+.secure-guard-ui .form-table input[type="checkbox"]:checked::before {
+	margin: -1px 0 0 -1px !important;
+	height: 18px !important;
+	width: 18px !important;
+}
+
 .secure-guard-ui .sg-row--revoked {
 	opacity: 0.5;
 }
@@ -233,15 +484,15 @@
 }
 
 .secure-guard-ui .sg-row--expired {
-	border-left: 3px solid #ffc107;
+	border-left: 3px solid var(--sg-warning);
 }
 
 /* =========================================================
-   Flex helpers
+   Flex and alignment helpers
    ========================================================= */
 .secure-guard-ui .sg-action-row {
 	display: flex;
-	gap: 6px;
+	gap: 8px;
 	flex-wrap: wrap;
 	align-items: center;
 }
@@ -250,192 +501,333 @@
    Pill badges
    ========================================================= */
 .secure-guard-ui .sg-pill {
-	display: inline-block;
-	padding: 2px 9px;
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 10px;
 	border: 1px solid currentColor;
-	border-radius: 999px;
+	border-radius: 9999px;
 	font-size: 11px;
-	line-height: 1.6;
+	line-height: 1.2;
 	font-weight: 600;
 	text-transform: uppercase;
-	letter-spacing: 0.3px;
+	letter-spacing: 0.5px;
 	white-space: nowrap;
 }
 
 .secure-guard-ui .sg-pill--blocked {
-	color: #842029;
-	background-color: #f8d7da;
-	border-color: #f1aeb5;
+	color: #991b1b;
+	background-color: #fee2e2;
+	border-color: #fca5a5;
 }
 
 .secure-guard-ui .sg-pill--allowed {
-	color: #0f5132;
+	color: #065f46;
 	background-color: #d1e7dd;
 	border-color: #a3cfbb;
 }
 
 .secure-guard-ui .sg-pill--warning {
-	color: #664d03;
-	background-color: #fff3cd;
-	border-color: #ffda6a;
+	color: #92400e;
+	background-color: #fef3c7;
+	border-color: #fcd34d;
 }
 
 .secure-guard-ui .sg-pill--revoked {
-	color: #41464b;
-	background-color: #e2e3e5;
-	border-color: #c4c8cb;
+	color: #374151;
+	background-color: #f3f4f6;
+	border-color: #d1d5db;
 }
 
 .secure-guard-ui .sg-pill--info {
-	color: #084298;
-	background-color: #cfe2ff;
-	border-color: #9ec5fe;
+	color: #1e40af;
+	background-color: #dbeafe;
+	border-color: #93c5fd;
 }
 
 /* =========================================================
-   HTTP method badge
+   HTTP Method Badges
    ========================================================= */
 .secure-guard-ui .sg-method-badge {
 	display: inline-block;
-	padding: 1px 6px;
-	border-radius: 3px;
-	background: #f0f0f1;
-	font-family: monospace;
+	background: #f1f5f9;
+	color: #475569;
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-family: Consolas, Monaco, monospace;
 	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
 }
 
 /* =========================================================
-   Code cells
+   Code cell formatting
    ========================================================= */
 .secure-guard-ui code {
+	background: #f1f5f9;
+	color: #0f172a;
+	padding: 2px 6px;
+	border-radius: 4px;
 	font-size: 12px;
+	font-family: Consolas, Monaco, monospace;
+}
+
+.secure-guard-ui pre {
+	background: #0f172a;
+	color: #f8fafc;
+	padding: 16px;
+	border-radius: var(--sg-border-radius-sm);
+	overflow-x: auto;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	border: 1px solid #334155;
+	box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+}
+
+.secure-guard-ui pre code {
+	background: transparent;
+	color: inherit;
+	padding: 0;
+	border-radius: 0;
 }
 
 /* =========================================================
-   JWT reveal button spacing
-   ========================================================= */
-.secure-guard-ui .sg-secret-wrap {
-	display: flex;
-	gap: 8px;
-	align-items: center;
-	flex-wrap: wrap;
-}
-
-/* =========================================================
-   Tabs
-   ========================================================= */
-.secure-guard-ui .nav-tab-wrapper {
-	border-bottom: 1px solid #c3c4c7;
-	margin-bottom: 0;
-}
-
-/* =========================================================
-   Pagination controls
-   ========================================================= */
-.secure-guard-ui .tablenav .paging-input,
-.secure-guard-ui .sg-pagination span {
-	margin: 0 8px;
-	font-size: 13px;
-}
-
-/* =========================================================
-   Copy-to-clipboard button
+   Copy to Clipboard button
    ========================================================= */
 .secure-guard-ui .sg-copy-btn {
 	font-size: 11px !important;
-	padding: 0 7px !important;
-	height: 22px !important;
-	line-height: 20px !important;
-	vertical-align: middle;
+	padding: 4px 8px !important;
+	height: auto !important;
+	line-height: 1.2 !important;
+	border-radius: var(--sg-border-radius-sm) !important;
+	transition: var(--sg-transition) !important;
 }
 
 .secure-guard-ui .sg-copy-btn.copied {
-	color: #0f5132 !important;
-	border-color: #a3cfbb !important;
-	background: #d1e7dd !important;
+	color: #fff !important;
+	background: var(--sg-success) !important;
+	border-color: var(--sg-success) !important;
 }
 
 /* =========================================================
-   Inline edit form panel
+   Edit Form Panel
    ========================================================= */
 .secure-guard-ui .sg-edit-form {
-	background: #f9f9f9;
-	border: 1px solid #dcdcde;
-	border-radius: 6px;
-	padding: 16px 20px;
+	background: #f8fafc;
+	border: 1px solid var(--sg-border-color);
+	border-radius: var(--sg-border-radius-sm);
+	padding: 20px;
+	margin: 12px 16px;
 }
 
 .secure-guard-ui .sg-edit-form h3 {
-	font-size: 14px;
+	font-size: 16px;
 	font-weight: 600;
+	color: var(--sg-text-dark);
 }
 
 /* =========================================================
-   Expiry countdown label on token rows
+   Expiry Label
    ========================================================= */
 .secure-guard-ui .sg-expiry-label {
 	font-size: 11px;
-	color: #646970;
+	color: var(--sg-text-muted);
 	display: block;
 	margin-top: 2px;
 }
 
 .secure-guard-ui .sg-expiry-label--soon {
-	color: #664d03;
+	color: var(--sg-warning);
 	font-weight: 600;
-}
-
-/* =========================================================
-   UI Refinements
-   ========================================================= */
-.secure-guard-ui .card {
-	box-shadow:
-		0 1px 3px rgba(0, 0, 0, 0.05),
-		0 1px 2px rgba(0, 0, 0, 0.1);
-	border: 1px solid #dcdcde;
-	transition: box-shadow 0.2s ease-in-out;
-}
-
-.secure-guard-ui .card:hover {
-	box-shadow:
-		0 4px 6px rgba(0, 0, 0, 0.07),
-		0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.secure-guard-ui h1 {
-	font-weight: 700;
-	color: #1d2327;
-	margin-bottom: 24px;
-}
-
-.secure-guard-ui .button-primary {
-	background: #2271b1;
-	border-color: #2271b1;
-	box-shadow: 0 1px 0 #135e96;
-	text-shadow: none;
-	font-weight: 600;
-}
-
-.secure-guard-ui .button-primary:hover {
-	background: #135e96;
-	border-color: #135e96;
 }
 
 /* =========================================================
    Docs Page Dashboard Card
    ========================================================= */
 .sg-docs-dashboard h3 {
-	color: #2271b1;
+	color: var(--sg-primary) !important;
 }
 
 .sg-docs-dashboard:hover {
-	border-left-color: #135e96 !important;
+	border-left-color: var(--sg-primary-hover) !important;
+}
+
+/* =========================================================
+   Geo flags
+   ========================================================= */
+.secure-guard-ui .sg-flag {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 2px 6px;
+	background: #f1f5f9;
+	border: 1px solid var(--sg-border-color);
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--sg-text-muted);
+	min-width: 24px;
+	height: 18px;
+}
+
+.secure-guard-ui .sg-flag--local {
+	background: #fef3c7;
+	border-color: #fde68a;
+	color: #d97706;
+}
+
+.secure-guard-ui .sg-flag--unknown {
+	background: #f8fafc;
+	border-style: dashed;
+}
+
+/* =========================================================
+   Navigation Tabs Customization
+   ========================================================= */
+.secure-guard-ui .nav-tab-wrapper {
+	border-bottom: 1px solid var(--sg-border-color);
+	margin-bottom: 20px;
+	padding-top: 8px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.secure-guard-ui .nav-tab {
+	background: transparent;
+	border: 1px solid transparent;
+	border-bottom: none;
+	color: var(--sg-text-muted);
+	font-weight: 600;
+	font-size: 13px;
+	padding: 8px 16px;
+	margin: 0;
+	border-radius: var(--sg-border-radius-sm) var(--sg-border-radius-sm) 0 0;
+	transition: var(--sg-transition);
+}
+
+.secure-guard-ui .nav-tab:hover,
+.secure-guard-ui .nav-tab:focus {
+	background: #f8fafc;
+	color: var(--sg-primary);
+	border-color: transparent;
+}
+
+.secure-guard-ui .nav-tab-active,
+.secure-guard-ui .nav-tab-active:focus,
+.secure-guard-ui .nav-tab-active:hover {
+	background: #fff !important;
+	border: 1px solid var(--sg-border-color) !important;
+	border-bottom: 2px solid #fff !important;
+	color: var(--sg-primary) !important;
+	font-weight: 600;
+	margin-bottom: -1px;
+}
+
+/* =========================================================
+   Custom Notices
+   ========================================================= */
+.secure-guard-ui .notice {
+	background: #fff !important;
+	border-radius: var(--sg-border-radius-sm) !important;
+	border-width: 1px 1px 1px 4px !important;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+	margin: 16px 0 !important;
+	padding: 12px 16px !important;
+}
+
+.secure-guard-ui .notice-success {
+	border-color: var(--sg-border-color) var(--sg-border-color) var(--sg-border-color) var(--sg-success) !important;
+	background: linear-gradient(to right, #fff, var(--sg-success-light)) !important;
+}
+
+.secure-guard-ui .notice-warning {
+	border-color: var(--sg-border-color) var(--sg-border-color) var(--sg-border-color) var(--sg-warning) !important;
+	background: linear-gradient(to right, #fff, var(--sg-warning-light)) !important;
+}
+
+.secure-guard-ui .notice-error {
+	border-color: var(--sg-border-color) var(--sg-border-color) var(--sg-border-color) var(--sg-danger) !important;
+	background: linear-gradient(to right, #fff, var(--sg-danger-light)) !important;
+}
+
+.secure-guard-ui .notice-info {
+	border-color: var(--sg-border-color) var(--sg-border-color) var(--sg-border-color) var(--sg-info) !important;
+	background: linear-gradient(to right, #fff, var(--sg-info-light)) !important;
+}
+
+.secure-guard-ui .notice p {
+	margin: 0 !important;
+	padding: 0 !important;
+	color: var(--sg-text-dark) !important;
+	font-size: 13px !important;
+}
+
+/* =========================================================
+   Documentation Layout (Sticky sidebar)
+   ========================================================= */
+.sg-docs-layout {
+	display: grid;
+	grid-template-columns: 260px 1fr;
+	gap: 24px;
+	align-items: start;
+	margin-top: 20px;
+}
+
+.secure-guard-ui .sg-docs-sidebar {
+	position: sticky;
+	top: 50px;
+	background: #fff;
+	padding: 16px;
+	border: 1px solid var(--sg-border-color);
+	border-radius: var(--sg-border-radius);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.secure-guard-ui .sg-docs-nav ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.secure-guard-ui .sg-docs-nav li {
+	margin-bottom: 4px;
+}
+
+.secure-guard-ui .sg-docs-nav a {
+	display: block;
+	padding: 8px 12px;
+	border-radius: var(--sg-border-radius-sm);
+	color: var(--sg-text-muted);
+	font-weight: 500;
+	text-decoration: none;
+	transition: var(--sg-transition);
+	font-size: 13px;
+}
+
+.secure-guard-ui .sg-docs-nav a:hover,
+.secure-guard-ui .sg-docs-nav a:focus {
+	background: var(--sg-primary-light);
+	color: var(--sg-primary);
+}
+
+.secure-guard-ui .sg-docs-content .card {
+	padding: 24px;
+	margin-bottom: 24px;
+	border-top: 4px solid var(--sg-primary) !important;
+}
+
+.secure-guard-ui .sg-docs-content pre {
+	overflow-x: auto;
+	padding: 14px;
+	border-radius: var(--sg-border-radius-sm);
+	background: #0f172a;
+	color: #f8fafc;
 }
 
 /* =========================================================
    Responsive breakpoints
    ========================================================= */
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
 	.secure-guard-ui .sg-metric-grid {
 		grid-template-columns: repeat(2, 1fr);
 	}
@@ -454,9 +846,7 @@
 		grid-template-columns: 1fr;
 	}
 
-	.secure-guard-ui .card,
-	.secure-guard-ui .sg-content-wide,
-	.secure-guard-ui .sg-content-narrow {
+	.secure-guard-ui .card {
 		max-width: 100% !important;
 	}
 
@@ -464,7 +854,7 @@
 		width: auto;
 	}
 
-	/* Filter bar on Logs page */
+	/* Filter bar */
 	.secure-guard-ui .sg-filter-bar {
 		flex-direction: column;
 		align-items: flex-start;
@@ -481,33 +871,4 @@
 	.secure-guard-ui .sg-metric-card__number {
 		font-size: 24px;
 	}
-}
-
-/* =========================================================
-   Geo flags
-   ========================================================= */
-.secure-guard-ui .sg-flag {
-	display: inline-block;
-	padding: 2px 4px;
-	background: #f0f0f1;
-	border: 1px solid #dcdcde;
-	border-radius: 3px;
-	font-size: 10px;
-	font-weight: 700;
-	color: #646970;
-	line-height: 1;
-	min-width: 20px;
-	text-align: center;
-}
-
-.secure-guard-ui .sg-flag--local {
-	background: #fff8e1;
-	border-color: #ffe082;
-	color: #ff8f00;
-	font-size: 14px;
-}
-
-.secure-guard-ui .sg-flag--unknown {
-	background: #fdfdfe;
-	border-style: dashed;
 }

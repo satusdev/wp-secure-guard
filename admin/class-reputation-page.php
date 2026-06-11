@@ -78,7 +78,7 @@ final class Secure_Guard_Reputation_Page {
         echo '</form>';
         echo '</div>';
 
-        echo '<div class="card" style="max-width:1000px;padding:16px;">';
+        echo '<div class="card">';
         
         if (empty($rows)) {
             echo '<p><em>' . esc_html__('No IPs found matching the current filters.', 'wp-secure-guard') . '</em></p>';

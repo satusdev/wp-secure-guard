@@ -173,7 +173,7 @@ final class Secure_Guard_Blocked_IPs_Page {
         }
 
         // ── quick unlock tool ───────────────────────────────────────────
-        echo '<div class="card" style="max-width:900px;padding:16px;margin-bottom:16px;">';
+        echo '<div class="card">';
         echo '<h2 style="margin-top:0;font-size:16px;">' . esc_html__('Quick Unlock', 'wp-secure-guard') . '</h2>';
         echo '<p class="description">' . esc_html__('Enter an IP address to immediately clear all associated blocks and reset their failure count.', 'wp-secure-guard') . '</p>';
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="display:flex;gap:8px;align-items:center;margin-top:12px;">';
@@ -183,7 +183,7 @@ final class Secure_Guard_Blocked_IPs_Page {
         submit_button(__('Unlock IP', 'wp-secure-guard'), 'primary', 'submit', false);
         echo '</form></div>';
 
-        echo '<div class="card" style="max-width:900px;padding:16px;margin-bottom:16px;">';
+        echo '<div class="card">';
         echo '<h2 style="margin-top:0;font-size:16px;">' . esc_html__('False Positive Recovery', 'wp-secure-guard') . '</h2>';
         echo '<p class="description">' . esc_html__('If real admins are locked out after failed logins, clear only login lockouts first. Firewall blocks remain in place.', 'wp-secure-guard') . '</p>';
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="display:inline-block;margin-right:8px;">';
@@ -194,7 +194,7 @@ final class Secure_Guard_Blocked_IPs_Page {
         echo '<a class="button" href="' . esc_url(admin_url('admin.php?page=secure-guard-assistant')) . '">' . esc_html__('Open Security Assistant', 'wp-secure-guard') . '</a>';
         echo '</div>';
 
-        echo '<div class="card" style="max-width:900px;padding:16px;">';
+        echo '<div class="card">';
         echo '<p style="margin-top:0;color:#646970;">' . sprintf(esc_html__('%d active block(s) detected', 'wp-secure-guard'), $total) . '</p>';
 
         if ($blocks === []) {

@@ -232,14 +232,14 @@ final class Secure_Guard_Dashboard_Page {
         echo '<summary style="cursor:pointer;font-size:14px;font-weight:600;color:#2271b1;padding:4px 0;">';
         echo esc_html__('Quick Verification (curl examples)', 'wp-secure-guard');
         echo '</summary>';
-        echo '<div class="card" style="padding:16px;margin-top:8px;">';
+        echo '<div class="card">';
         echo '<p class="description">' . esc_html__('Replace SITE and TOKEN with actual values. Without a token expect 403; with a valid token expect route-specific responses.', 'wp-secure-guard') . '</p>';
         echo '<pre style="white-space:pre-wrap;">' . esc_html("# Without token (expect 403 when REST lock is enabled)\ncurl -i https://SITE/wp-json/wp/v2/posts\n\n# With token\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/posts\n\n# With token to sensitive route (requires full_api_access when enabled)\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/users") . '</pre>';
         echo '</div></details>';
 
         // ── Documentation & Support ─────────────────────────────────────
-        echo '<div class="sg-docs-dashboard card" style="margin-top:20px; display: flex; align-items: center; gap: 20px; border-left: 4px solid #2271b1;">';
-        echo '<div style="font-size: 40px;"><span class="dashicons dashicons-book-alt" style="font-size: 40px; width: 40px; height: 40px; color: #2271b1;"></span></div>';
+        echo '<div class="sg-docs-dashboard card">';
+        echo '<div style="font-size: 40px;"><span class="dashicons dashicons-book-alt" style="font-size: 40px; width: 40px; height: 40px; color: var(--sg-primary);"></span></div>';
         echo '<div>';
         echo '<h3 style="margin: 0 0 4px 0;">' . esc_html__('Need Help?', 'wp-secure-guard') . '</h3>';
         echo '<p style="margin: 0;">' . esc_html__('Check out our comprehensive documentation to learn more about JWT, REST security, and hardening features.', 'wp-secure-guard') . '</p>';

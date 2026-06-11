@@ -322,7 +322,7 @@ final class Secure_Guard_Tokens_Page {
                 <div class="notice notice-success"><p><?php echo esc_html__('New token generated:', 'wp-secure-guard'); ?> <code style="word-break:break-all;"><?php echo esc_html($created_token); ?></code> <button type="button" class="button button-small sg-copy-btn" data-copy="<?php echo esc_attr($created_token); ?>"><?php esc_html_e('Copy', 'wp-secure-guard'); ?></button></p></div>
             <?php endif; ?>
 
-            <div class="card" style="max-width:1200px;padding:16px;">
+            <div class="card">
             <h2><?php echo esc_html__('Create Token', 'wp-secure-guard'); ?></h2>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <input type="hidden" name="action" value="secure_guard_create_token" />
@@ -339,7 +339,7 @@ final class Secure_Guard_Tokens_Page {
             </form>
             </div>
 
-            <div class="card" style="max-width:1200px;padding:16px;margin-top:16px;">
+            <div class="card">
                 <h2><?php echo esc_html__('Existing Tokens', 'wp-secure-guard'); ?></h2>
             <p class="description" style="margin-bottom:8px;">
                 <?php
@@ -528,7 +528,7 @@ final class Secure_Guard_Tokens_Page {
 
             </div>
 
-            <div class="card" style="max-width:1200px;padding:16px;margin-top:16px;">
+            <div class="card">
                 <h2 style="margin-top:0;"><?php echo esc_html__('Usage & Verification', 'wp-secure-guard'); ?></h2>
                 <p class="description"><?php echo esc_html__('Replace SITE and TOKEN values. Without token expect 403; with valid token expect route-specific responses.', 'wp-secure-guard'); ?></p>
                 <pre style="white-space:pre-wrap;"><?php echo esc_html("# Without token (expect 403)\ncurl -i https://SITE/wp-json/wp/v2/posts\n\n# With token to non-sensitive route\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/posts\n\n# With token to sensitive route (requires full_api_access when enabled)\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/users"); ?></pre>

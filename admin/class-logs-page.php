@@ -86,7 +86,7 @@ final class Secure_Guard_Logs_Page {
         }
         echo '</div></form>';
 
-        echo '<div class="card" style="max-width:1400px;padding:16px;">';
+        echo '<div class="card">';
 
         if ($entries === []) {
             echo '<p><em>' . esc_html__('No log entries match the current filter.', 'wp-secure-guard') . '</em></p>';

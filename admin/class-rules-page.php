@@ -95,7 +95,7 @@ final class Secure_Guard_Rules_Page {
             <h1><?php echo esc_html__('Security Rules', 'wp-secure-guard'); ?></h1>
             <p class="description"><?php echo esc_html__('Live status of all Secure Guard protection modules. Click the Settings link to configure any module.', 'wp-secure-guard'); ?></p>
 
-            <div class="card" style="max-width:1100px;padding:16px;">
+            <div class="card">
                 <h2 style="margin-top:0;"><?php esc_html_e('Module Status', 'wp-secure-guard'); ?></h2>
                 <table class="widefat striped">
                     <thead>
@@ -124,7 +124,7 @@ final class Secure_Guard_Rules_Page {
                 </table>
             </div>
 
-            <div class="card" style="max-width:1100px;padding:16px;margin-top:16px;">
+            <div class="card">
                 <h2 style="margin-top:0;"><?php echo esc_html__('Constant Overrides', 'wp-secure-guard'); ?></h2>
                 <p class="description"><?php esc_html_e('These PHP constants, when defined in wp-config.php, take precedence over all other settings.', 'wp-secure-guard'); ?></p>
                 <table class="widefat striped">
@@ -135,7 +135,7 @@ final class Secure_Guard_Rules_Page {
                 </table>
             </div>
 
-            <div class="card" style="max-width:1100px;padding:16px;margin-top:16px;">
+            <div class="card">
                 <h2 style="margin-top:0;"><?php echo esc_html__('Environment Variable Overrides', 'wp-secure-guard'); ?></h2>
                 <p class="description"><?php esc_html_e('Environment variables (set in .env for Bedrock / phpdotenv, or via server config) take precedence over database settings and yield only to PHP constants. Setting the same issuer and audience across all environments means tokens survive a staging-to-production database clone without re-signing.', 'wp-secure-guard'); ?></p>
                 <p class="description" style="margin-top:6px;"><strong><?php esc_html_e('Bedrock .env example:', 'wp-secure-guard'); ?></strong></p>
@@ -169,7 +169,7 @@ SECURE_GUARD_JWT_AUDIENCE=https://example.com/</pre>
                 </table>
             </div>
 
-            <div class="card" style="max-width:1100px;padding:16px;margin-top:16px;">
+            <div class="card">
                 <h2 style="margin-top:0;"><?php echo esc_html__('Usage & Verification', 'wp-secure-guard'); ?></h2>
                 <p class="description"><?php echo esc_html__('Replace SITE and TOKEN values. Without JWT expect 403; with valid JWT expect route-specific responses.', 'wp-secure-guard'); ?></p>
                 <pre style="white-space:pre-wrap;"><?php echo esc_html("# 1) Without token (expect 403)\ncurl -i https://SITE/wp-json/wp/v2/posts\n\n# 2) With token to non-sensitive route\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/posts\n\n# 3) With token to sensitive route (requires full_api_access when enabled)\ncurl -i -H \"Authorization: Bearer TOKEN\" https://SITE/wp-json/wp/v2/users\n\n# 4) Legacy rest_route query format\ncurl -i -H \"Authorization: Bearer TOKEN\" \"https://SITE/?rest_route=/wp/v2/posts\""); ?></pre>
