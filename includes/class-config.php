@@ -136,6 +136,7 @@ final class Secure_Guard_Config {
             'burst_window_seconds' => 2,
             'endpoint_sensitivity_enabled' => 1,
             'mu_plugin_path' => WP_CONTENT_DIR . '/mu-plugins',
+            'allowed_bot_user_agents' => "UptimeRobot\nPingdom\nBetterStack\nNodePing",
         ];
     }
 
@@ -278,6 +279,7 @@ final class Secure_Guard_Config {
             'burst_window_seconds' => max(1, (int) ($input['burst_window_seconds'] ?? $defaults['burst_window_seconds'])),
             'endpoint_sensitivity_enabled' => !empty($input['endpoint_sensitivity_enabled']) ? 1 : 0,
             'mu_plugin_path' => sanitize_text_field((string) ($input['mu_plugin_path'] ?? $defaults['mu_plugin_path'])),
+            'allowed_bot_user_agents' => sanitize_textarea_field((string) ($input['allowed_bot_user_agents'] ?? $defaults['allowed_bot_user_agents'])),
         ];
 
         $settings['login_medium_threshold'] = max($settings['login_short_threshold'], $settings['login_medium_threshold']);

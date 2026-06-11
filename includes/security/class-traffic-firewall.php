@@ -45,6 +45,11 @@ final class Secure_Guard_Traffic_Firewall {
 
     public function handle_request(): void {
         $ip = $this->ip_whitelist->get_request_ip();
+
+        if ($this->ip_whitelist->is_allowed($ip)) {
+            return;
+        }
+
         $tier = $this->reputation_engine->get_tier($ip);
 
         // Apply progressive throttle (artificial delay) based on reputation
@@ -72,15 +77,11 @@ final class Secure_Guard_Traffic_Firewall {
         }
 
         $bot_score = $this->bot_fingerprint->analyze();
-        if ($bot_score >= 60 || ($bot_score > 0 && $this->is_bad_bot())) {
+        if (($bot_score >= 60 || ($bot_score > 0 && $this->is_bad_bot())) && !$this->is_allowed_bot_user_agent()) {
             $this->reputation_engine->add_score($ip, $bot_score ?: 20, 'Bot detected (score: ' . $bot_score . ')');
             if ($bot_score >= 60) {
                  $this->deny_request('Malicious bot behavior blocked', 403, $ip);
             }
-        }
-
-        if ($this->ip_whitelist->is_allowed($ip)) {
-            return;
         }
 
         if ($this->is_globally_blocked($ip)) {
@@ -157,6 +158,10 @@ final class Secure_Guard_Traffic_Firewall {
 
     private function should_skip_throttle(): bool {
         if (defined('WP_CLI') && WP_CLI) {
+            return true;
+        }
+
+        if ($this->is_allowed_bot_user_agent()) {
             return true;
         }
 
@@ -351,6 +356,28 @@ final class Secure_Guard_Traffic_Firewall {
 
         foreach ($bad_bots as $bot) {
             if (str_contains($ua, $bot)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function is_allowed_bot_user_agent(): bool {
+        $ua = strtolower(sanitize_text_field((string) ($_SERVER['HTTP_USER_AGENT'] ?? '')));
+        if ($ua === '') {
+            return false;
+        }
+
+        $allowed_bots = trim((string) ($this->settings['allowed_bot_user_agents'] ?? ''));
+        if ($allowed_bots === '') {
+            return false;
+        }
+
+        $entries = preg_split('/\r\n|\r|\n/', $allowed_bots) ?: [];
+        foreach ($entries as $entry) {
+            $entry = trim(strtolower($entry));
+            if ($entry !== '' && str_contains($ua, $entry)) {
                 return true;
             }
         }

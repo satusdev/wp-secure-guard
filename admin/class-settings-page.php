@@ -155,6 +155,21 @@ final class Secure_Guard_Settings_Page {
                         });
                     });
                 });
+
+                document.querySelectorAll('.sg-add-bot-ua').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var ua = btn.getAttribute('data-ua');
+                        var textarea = document.getElementById('sg_allowed_bot_user_agents');
+                        if (!textarea) return;
+                        var currentVal = textarea.value.trim();
+                        var lines = currentVal ? currentVal.split('\n') : [];
+                        lines = lines.map(function(l) { return l.trim(); }).filter(function(l) { return l !== ''; });
+                        if (lines.indexOf(ua) === -1) {
+                            lines.push(ua);
+                            textarea.value = lines.join('\n') + '\n';
+                        }
+                    });
+                });
             });
         })();
         </script>
@@ -273,6 +288,26 @@ final class Secure_Guard_Settings_Page {
                 echo '<textarea rows="6" cols="60" name="' . esc_attr( $k ) . '[allowed_rest_namespaces]">'
                      . esc_textarea( (string) ( $s['allowed_rest_namespaces'] ?? '' ) ) . '</textarea>';
                 echo '<p class="description">' . esc_html__( 'One REST namespace per line (e.g. contact-form-7/v1). These bypass JWT enforcement and REST Strict Mode.', 'wp-secure-guard' ) . '</p></td></tr>';
+
+                echo '<tr><th>' . esc_html__( 'Allowed Bot User-Agents / Ping Services', 'wp-secure-guard' ) . '</th><td>';
+                echo '<textarea id="sg_allowed_bot_user_agents" rows="6" cols="60" name="' . esc_attr( $k ) . '[allowed_bot_user_agents]">'
+                     . esc_textarea( (string) ( $s['allowed_bot_user_agents'] ?? '' ) ) . '</textarea>';
+                echo '<p class="description">' . esc_html__( 'One User-Agent substring per line (e.g. UptimeRobot, Pingdom). Requests containing these User-Agents will bypass the behavioral bot fingerprinting and bad bot blocks.', 'wp-secure-guard' ) . '</p>';
+                echo '<div style="margin-top: 10px;">';
+                echo '<span style="font-weight: 500; display: block; margin-bottom: 5px;">' . esc_html__('Quick Allow Bot Services:', 'wp-secure-guard') . '</span>';
+                $common_bots = [
+                    'UptimeRobot' => 'UptimeRobot',
+                    'Pingdom' => 'Pingdom',
+                    'BetterStack' => 'BetterStack',
+                    'NodePing' => 'NodePing',
+                    'NewRelic' => 'New Relic',
+                    'curl' => 'curl (Command line)',
+                ];
+                foreach ($common_bots as $ua_key => $ua_label) {
+                    echo '<button type="button" class="button button-small sg-add-bot-ua" data-ua="' . esc_attr($ua_key) . '" style="margin-right: 5px; margin-bottom: 5px;">+ ' . esc_html($ua_label) . '</button>';
+                }
+                echo '</div>';
+                echo '</td></tr>';
 
                 echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:13px;font-weight:600;border-top:1px solid #dcdcde;padding-top:12px;">'
                      . esc_html__( 'Infrastructure & Proxy', 'wp-secure-guard' ) . '</h3></th></tr>';
