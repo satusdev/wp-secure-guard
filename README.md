@@ -106,7 +106,7 @@ Add the repository source to your Bedrock `composer.json` file:
 ```json
 {
   "require": {
-    "satusdev/wp-secure-guard": "^1.0.3"
+    "satusdev/wp-secure-guard": "^1.0.4"
   }
 }
 ```
