@@ -415,10 +415,69 @@ final class Secure_Guard_Settings_Page {
                 break;
 
             case 'hardening':
+                // Exposure Scan Results
+                $exposure_results = get_transient('sg_exposure_results');
+                if (isset($_GET['run_exposure_test'])) {
+                    if (current_user_can('manage_options') && isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'sg_run_exposure_test')) {
+                        $exposure_results = Secure_Guard_WP_Hardening::test_exposure_status();
+                        set_transient('sg_exposure_results', $exposure_results, HOUR_IN_SECONDS);
+                    }
+                }
+                if (!$exposure_results) {
+                    $exposure_results = Secure_Guard_WP_Hardening::test_exposure_status();
+                    set_transient('sg_exposure_results', $exposure_results, HOUR_IN_SECONDS);
+                }
+
+                $scan_url = wp_nonce_url(add_query_arg(['tab' => 'hardening', 'run_exposure_test' => '1'], admin_url('admin.php?page=secure-guard-settings')), 'sg_run_exposure_test');
+                
+                echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:14px;font-weight:600;padding-bottom:4px;border-bottom:1px solid #dcdcde;">'
+                     . esc_html__('Path Exposure Scanner', 'wp-secure-guard') . '</h3></th></tr>';
+                echo '<tr><td colspan="2"><div style="background:#fcfcfc; border:1px solid #ccd0d4; padding:20px; border-radius:6px; margin-bottom:20px; box-shadow:0 1px 1px rgba(0,0,0,.04);">';
+                echo '<p style="margin:0 0 15px; font-weight:600; font-size:13px; color:#1d2327;">' . esc_html__('Real-time public exposure status of sensitive files:', 'wp-secure-guard') . '</p>';
+                echo '<table class="wp-list-table widefat fixed striped" style="margin-bottom:15px; border:1px solid #dcdcde; box-shadow:none;">';
+                echo '<thead><tr>';
+                echo '<th style="padding:10px; font-weight:600;">' . esc_html__('Path', 'wp-secure-guard') . '</th>';
+                echo '<th style="padding:10px; font-weight:600; width:120px;">' . esc_html__('Status', 'wp-secure-guard') . '</th>';
+                echo '<th style="padding:10px; font-weight:600;">' . esc_html__('Details', 'wp-secure-guard') . '</th>';
+                echo '</tr></thead>';
+                echo '<tbody>';
+                
+                foreach ($exposure_results as $file => $info) {
+                    $status_bg = '#d63638'; // red
+                    $status_text = __('Exposed', 'wp-secure-guard');
+                    if ($info['status'] === 'protected') {
+                        $status_bg = '#00a32a'; // green
+                        $status_text = __('Protected', 'wp-secure-guard');
+                    } elseif ($info['status'] === 'unknown') {
+                        $status_bg = '#cca300'; // yellow
+                        $status_text = __('Unreachable', 'wp-secure-guard');
+                    }
+                    
+                    echo '<tr>';
+                    echo '<td style="padding:10px; font-family:monospace; font-weight:600;">' . esc_html($file) . '</td>';
+                    echo '<td style="padding:10px;"><span style="display:inline-block; background:' . esc_attr($status_bg) . '; color:#fff; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; text-align:center; min-width:80px;">' . esc_html($status_text) . '</span></td>';
+                    echo '<td style="padding:10px; color:#50575e;">' . esc_html($info['msg']) . '</td>';
+                    echo '</tr>';
+                }
+                echo '</tbody>';
+                echo '</table>';
+                echo '<a href="' . esc_url($scan_url) . '" class="button button-secondary" style="font-weight:600;">' . esc_html__('Run Exposure Scan Now', 'wp-secure-guard') . '</a>';
+                echo '</div></td></tr>';
+
+                echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:14px;font-weight:600;padding-bottom:4px;border-bottom:1px solid #dcdcde;">'
+                     . esc_html__('Security Hardening Options', 'wp-secure-guard') . '</h3></th></tr>';
+
                 $this->row_checkbox($k, 'hide_wp_info', $s,
                     __('Hide WordPress Fingerprint', 'wp-secure-guard'),
                     __('Remove generator tags, version query strings, and block readme/license/debug.log probes.', 'wp-secure-guard')
                 );
+                $resolved_log = get_option('secure_guard_resolved_debug_log_path');
+                if (!empty($resolved_log) && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+                    echo '<tr><th>' . esc_html__('Relocated Debug Log', 'wp-secure-guard') . '</th><td>';
+                    echo '<code style="word-break: break-all; background:#f0f0f1; padding:3px 6px; border-radius:3px; font-family:monospace;">' . esc_html($resolved_log) . '</code>';
+                    echo '<p class="description" style="margin-top:6px;">' . esc_html__('The debug.log was automatically moved outside of the public web root (or randomized) to prevent public downloads.', 'wp-secure-guard') . '</p>';
+                    echo '</td></tr>';
+                }
                 $this->row_checkbox($k, 'disable_emojis', $s,
                     __('Disable Emojis', 'wp-secure-guard'),
                     __('Remove the emoji detection script and styles to reduce page bloat and fingerprinting.', 'wp-secure-guard')
@@ -456,6 +515,49 @@ final class Secure_Guard_Settings_Page {
                     __('MU-Plugin Path', 'wp-secure-guard'),
                     __('Full system path to the mu-plugins directory. Leave empty for default.', 'wp-secure-guard')
                 );
+
+                // Nginx Hardening Suggestions
+                $server_software = sanitize_text_field((string) ($_SERVER['SERVER_SOFTWARE'] ?? ''));
+                $is_nginx = str_contains(strtolower($server_software), 'nginx');
+                
+                if ($is_nginx) {
+                    $is_bedrock = str_ends_with(rtrim(str_replace('\\', '/', ABSPATH), '/'), '/wp') || 
+                                  file_exists(ABSPATH . '../config/application.php');
+                    
+                    $nginx_rules = "# Secure Guard - Nginx Hardening Rules\n";
+                    $nginx_rules .= "# Add these rules to your Nginx virtual host 'server' block:\n\n";
+                    $nginx_rules .= "# 1. Prevent directory indexing\n";
+                    $nginx_rules .= "autoindex off;\n\n";
+                    $nginx_rules .= "# 2. Block direct access to sensitive extensions\n";
+                    $nginx_rules .= "location ~* \.(log|ini|sh|bak|conf|sql|env)$ {\n";
+                    $nginx_rules .= "    deny all;\n";
+                    $nginx_rules .= "}\n\n";
+                    $nginx_rules .= "# 3. Block readme, license, install, and upgrade files\n";
+                    $nginx_rules .= "location ~* /(readme\.html|license\.txt|install\.php|upgrade\.php)$ {\n";
+                    $nginx_rules .= "    deny all;\n";
+                    $nginx_rules .= "}\n\n";
+                    $nginx_rules .= "# 4. Block PHP execution in uploads directory\n";
+                    $nginx_rules .= "location ~* /uploads/.*\.php$ {\n";
+                    $nginx_rules .= "    deny all;\n";
+                    $nginx_rules .= "}\n";
+                    
+                    if ($is_bedrock) {
+                        $nginx_rules .= "\n# 5. Block Bedrock specific paths\n";
+                        $nginx_rules .= "location ~* /(config|vendor|\.env) {\n";
+                        $nginx_rules .= "    deny all;\n";
+                        $nginx_rules .= "}\n";
+                    }
+
+                    echo '<tr><th colspan="2"><h3 style="margin:18px 0 0;font-size:14px;font-weight:600;padding-bottom:4px;border-bottom:1px solid #dcdcde;">'
+                         . esc_html__('Nginx Server Hardening', 'wp-secure-guard') . '</h3></th></tr>';
+                    echo '<tr><td colspan="2">';
+                    echo '<div class="notice notice-warning inline" style="margin:4px 0 12px; display:block; padding:10px 15px; border-left-color:#dba617;">';
+                    echo '<p style="margin:0;"><strong>' . esc_html__('Nginx detected:', 'wp-secure-guard') . '</strong> ';
+                    echo esc_html__('Nginx does not support .htaccess files. To properly block files (like debug.log) from being downloaded directly, you must copy the configuration rules below and add them to your Nginx site configuration block.', 'wp-secure-guard') . '</p>';
+                    echo '</div>';
+                    echo '<textarea rows="15" cols="80" class="large-text code" readonly style="font-family:monospace; background:#f0f0f1; padding:15px; border-radius:4px; font-size:12px; line-height:1.5; color:#2c3338; border:1px solid #8c8f94;">' . esc_textarea($nginx_rules) . '</textarea>';
+                    echo '</td></tr>';
+                }
                 break;
             case 'adaptive-security':
                 $this->row_checkbox($k, 'reputation_enabled', $s,

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Secure Guard
  * Description: REST API and sensitive endpoint security guard for WordPress.
- * Version: 1.0.4
+ * Version: 1.1.0
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: satusdev
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SECURE_GUARD_VERSION', '1.0.4');
+define('SECURE_GUARD_VERSION', '1.1.0');
 define('SECURE_GUARD_FILE', __FILE__);
 define('SECURE_GUARD_DIR', plugin_dir_path(__FILE__));
 define('SECURE_GUARD_URL', plugin_dir_url(__FILE__));
@@ -107,6 +107,22 @@ register_deactivation_hook(
         if ($token_expiry_timestamp) {
             wp_unschedule_event($token_expiry_timestamp, 'secure_guard_token_expiry_check');
         }
+
+        // Restore relocated debug.log
+        $secure_path = get_option('secure_guard_resolved_debug_log_path');
+        if (!empty($secure_path) && file_exists($secure_path)) {
+            $default_debug_log = WP_CONTENT_DIR . '/debug.log';
+            if (@rename($secure_path, $default_debug_log) === false) {
+                if (@copy($secure_path, $default_debug_log)) {
+                    @unlink($secure_path);
+                }
+            }
+        }
+        delete_option('secure_guard_resolved_debug_log_path');
+
+        // Remove .htaccess protections
+        Secure_Guard_WP_Hardening::remove_htaccess_protection();
+        delete_option('secure_guard_htaccess_hardened');
     }
 );
 

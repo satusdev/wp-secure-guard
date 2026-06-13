@@ -130,7 +130,7 @@ final class Secure_Guard_Config {
             'progressive_throttle_enabled' => 1,
             'lock_state_enabled' => 1,
             'lockdown_velocity_threshold' => 500,
-            'self_protection_enabled' => 0,
+            'self_protection_enabled' => 1,
             'bot_fingerprint_enabled' => 1,
             'burst_limit' => 10,
             'burst_window_seconds' => 2,
