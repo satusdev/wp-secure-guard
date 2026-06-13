@@ -71,6 +71,11 @@ final class Secure_Guard_Config {
     }
 
     public static function defaults(): array {
+        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $fallback_url = $scheme . '://' . $host . '/';
+        $jwt_url = function_exists('home_url') ? home_url('/') : $fallback_url;
+
         return [
             'rest_lock_enabled' => 1,
             'block_sensitive_endpoints' => 1,
@@ -94,8 +99,8 @@ final class Secure_Guard_Config {
             'rate_limit_per_minute' => 100,
             'allowed_roles' => ['administrator'],
             'jwt_secret' => '',
-            'jwt_issuer' => home_url('/'),
-            'jwt_audience' => home_url('/'),
+            'jwt_issuer' => $jwt_url,
+            'jwt_audience' => $jwt_url,
             'jwt_ttl_minutes' => 60,
             'jwt_clock_skew_seconds' => 30,
             'bind_jwt_to_ip' => 0,
