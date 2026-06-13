@@ -58,7 +58,7 @@ final class Secure_Guard_WP_Hardening {
 
             // Check if Bedrock setup
             $is_bedrock = str_ends_with(rtrim(str_replace('\\', '/', ABSPATH), '/'), '/wp') || 
-                          file_exists(ABSPATH . '../config/application.php');
+                          file_exists(dirname(ABSPATH) . '/config/application.php');
 
             if ($is_bedrock) {
                 $project_root = dirname(dirname(ABSPATH));
@@ -116,9 +116,6 @@ final class Secure_Guard_WP_Hardening {
         $root_htaccess = Secure_Guard_Config::get_root_htaccess_path();
         $root_rules = [
             '# BEGIN Secure Guard - Root Hardening',
-            '# Prevent directory indexing',
-            'Options -Indexes',
-            '',
             '# Protect sensitive files',
             '<FilesMatch "\.(log|ini|sh|bak|conf|sql|env)$">',
             '    <IfModule mod_authz_core.c>',
@@ -142,21 +139,40 @@ final class Secure_Guard_WP_Hardening {
             '</FilesMatch>'
         ];
 
-        // Bedrock-specific additions for root
+        // Bedrock check
         $is_bedrock = str_ends_with(rtrim(str_replace('\\', '/', ABSPATH), '/'), '/wp') || 
-                      file_exists(ABSPATH . '../config/application.php');
+                      file_exists(dirname(ABSPATH) . '/config/application.php');
         if ($is_bedrock) {
             $root_rules[] = '';
             $root_rules[] = '# Bedrock directory protection';
-            $root_rules[] = '<DirectoryMatch "^/(config|vendor)">';
-            $root_rules[] = '    <IfModule mod_authz_core.c>';
-            $root_rules[] = '        Require all denied';
-            $root_rules[] = '    </IfModule>';
-            $root_rules[] = '    <IfModule !mod_authz_core.c>';
-            $root_rules[] = '        Order deny,allow';
-            $root_rules[] = '        Deny from all';
-            $root_rules[] = '    </IfModule>';
-            $root_rules[] = '</DirectoryMatch>';
+            $root_rules[] = '<IfModule mod_rewrite.c>';
+            $root_rules[] = '    RewriteEngine On';
+            $root_rules[] = '    RewriteRule ^(config|vendor|\.env) - [F,L]';
+            $root_rules[] = '</IfModule>';
+
+            // Write local .htaccess to Bedrock directories directly
+            $project_root = dirname(dirname(ABSPATH));
+            $dirs_to_protect = [
+                $project_root . '/config',
+                $project_root . '/vendor'
+            ];
+            foreach ($dirs_to_protect as $dir) {
+                if (is_dir($dir) && is_writable($dir)) {
+                    $local_htaccess = $dir . '/.htaccess';
+                    $local_rules = [
+                        '# BEGIN Secure Guard - Local Block',
+                        '<IfModule mod_authz_core.c>',
+                        '    Require all denied',
+                        '</IfModule>',
+                        '<IfModule !mod_authz_core.c>',
+                        '    Order deny,allow',
+                        '    Deny from all',
+                        '</IfModule>',
+                        '# END Secure Guard - Local Block'
+                    ];
+                    self::write_to_htaccess($local_htaccess, implode("\n", $local_rules));
+                }
+            }
         }
 
         if (!empty($settings['block_xmlrpc'])) {
@@ -194,9 +210,6 @@ final class Secure_Guard_WP_Hardening {
         $app_htaccess = Secure_Guard_Config::get_htaccess_path();
         $app_rules = [
             '# BEGIN Secure Guard - App Hardening',
-            '# Prevent directory indexing',
-            'Options -Indexes',
-            '',
             '# Protect sensitive files in app directory',
             '<FilesMatch "\.(log|ini|sh|bak|conf|sql|env)$">',
             '    <IfModule mod_authz_core.c>',
@@ -211,15 +224,20 @@ final class Secure_Guard_WP_Hardening {
         ];
         self::write_to_htaccess($app_htaccess, implode("\n", $app_rules));
 
+        // Create empty index.php files if missing to prevent index listing safely
+        $app_dir = dirname($app_htaccess);
+        if (is_dir($app_dir) && is_writable($app_dir)) {
+            if (!file_exists($app_dir . '/index.php') && !file_exists($app_dir . '/index.html')) {
+                @file_put_contents($app_dir . '/index.php', "<?php\n// Silence is golden.\n");
+            }
+        }
+
         // 3. Uploads directory .htaccess rules (Disable PHP execution)
         $upload_dir_info = wp_upload_dir();
         if (empty($upload_dir_info['error'])) {
             $uploads_htaccess = rtrim($upload_dir_info['basedir'], '/\\') . '/.htaccess';
             $uploads_rules = [
                 '# BEGIN Secure Guard - Uploads Hardening',
-                '# Prevent directory indexing',
-                'Options -Indexes',
-                '',
                 '# Disable PHP execution in uploads directory',
                 '<FilesMatch "\.(php|php3|php4|php5|phtml|pl|py|jsp|asp|htm|html|shtml|sh|cgi)$">',
                 '    <IfModule mod_authz_core.c>',
@@ -233,6 +251,13 @@ final class Secure_Guard_WP_Hardening {
                 '# END Secure Guard - Uploads Hardening'
             ];
             self::write_to_htaccess($uploads_htaccess, implode("\n", $uploads_rules));
+
+            $uploads_dir = dirname($uploads_htaccess);
+            if (is_dir($uploads_dir) && is_writable($uploads_dir)) {
+                if (!file_exists($uploads_dir . '/index.php') && !file_exists($uploads_dir . '/index.html')) {
+                    @file_put_contents($uploads_dir . '/index.php', "<?php\n// Silence is golden.\n");
+                }
+            }
         }
     }
 
@@ -281,6 +306,15 @@ final class Secure_Guard_WP_Hardening {
             $files[] = rtrim($upload_dir_info['basedir'], '/\\') . '/.htaccess';
         }
 
+        // Bedrock check
+        $is_bedrock = str_ends_with(rtrim(str_replace('\\', '/', ABSPATH), '/'), '/wp') || 
+                      file_exists(dirname(ABSPATH) . '/config/application.php');
+        if ($is_bedrock) {
+            $project_root = dirname(dirname(ABSPATH));
+            $files[] = $project_root . '/config/.htaccess';
+            $files[] = $project_root . '/vendor/.htaccess';
+        }
+
         foreach ($files as $file) {
             if (!file_exists($file)) {
                 continue;
@@ -297,6 +331,7 @@ final class Secure_Guard_WP_Hardening {
             $content = preg_replace('/# BEGIN Secure Guard - Root Hardening.*?# END Secure Guard - Root Hardening\s*/s', '', $content);
             $content = preg_replace('/# BEGIN Secure Guard - App Hardening.*?# END Secure Guard - App Hardening\s*/s', '', $content);
             $content = preg_replace('/# BEGIN Secure Guard - Uploads Hardening.*?# END Secure Guard - Uploads Hardening\s*/s', '', $content);
+            $content = preg_replace('/# BEGIN Secure Guard - Local Block.*?# END Secure Guard - Local Block\s*/s', '', $content);
 
             $content = trim($content);
             if (empty($content)) {
@@ -319,7 +354,7 @@ final class Secure_Guard_WP_Hardening {
 
         // Bedrock check
         $is_bedrock = str_ends_with(rtrim(str_replace('\\', '/', ABSPATH), '/'), '/wp') || 
-                      file_exists(ABSPATH . '../config/application.php');
+                      file_exists(dirname(ABSPATH) . '/config/application.php');
         if (!$is_bedrock) {
             $paths_to_test['debug.log'] = '/wp-content/debug.log';
         }

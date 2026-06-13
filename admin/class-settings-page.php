@@ -522,7 +522,7 @@ final class Secure_Guard_Settings_Page {
                 
                 if ($is_nginx) {
                     $is_bedrock = str_ends_with(rtrim(str_replace('\\', '/', ABSPATH), '/'), '/wp') || 
-                                  file_exists(ABSPATH . '../config/application.php');
+                                  file_exists(dirname(ABSPATH) . '/config/application.php');
                     
                     $nginx_rules = "# Secure Guard - Nginx Hardening Rules\n";
                     $nginx_rules .= "# Add these rules to your Nginx virtual host 'server' block:\n\n";
