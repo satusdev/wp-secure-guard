@@ -139,6 +139,10 @@ final class Secure_Guard_Installer {
 
 if (!defined('ABSPATH')) exit;
 
+// Bypass for WP-CLI and CLI environments
+if (defined('WP_CLI') && WP_CLI) return;
+if (php_sapi_name() === 'cli') return;
+
 // 1. Lockdown Check (High Performance)
 
 
