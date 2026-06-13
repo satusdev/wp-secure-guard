@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Secure Guard
  * Description: REST API and sensitive endpoint security guard for WordPress.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: satusdev
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SECURE_GUARD_VERSION', '1.1.0');
+define('SECURE_GUARD_VERSION', '1.1.1');
 define('SECURE_GUARD_FILE', __FILE__);
 define('SECURE_GUARD_DIR', plugin_dir_path(__FILE__));
 define('SECURE_GUARD_URL', plugin_dir_url(__FILE__));
