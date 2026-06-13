@@ -47,6 +47,11 @@ final class Secure_Guard_IP_Whitelist {
     }
 
     public function is_allowed(string $ip, ?string $token_ips = null): bool {
+        // Always allow localhost loopbacks and CLI fallback IPs
+        if ($ip === '127.0.0.1' || $ip === '::1' || $ip === '0.0.0.0') {
+            return true;
+        }
+
         $global_list = trim((string) ($this->settings['ip_whitelist'] ?? ''));
         $token_list = trim((string) ($token_ips ?? ''));
 
