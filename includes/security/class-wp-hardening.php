@@ -354,10 +354,7 @@ final class Secure_Guard_WP_Hardening {
 
         // 2. App / wp-content .htaccess rules
         $app_htaccess = Secure_Guard_Config::get_htaccess_path();
-        $app_rules = [
-            '# BEGIN Secure Guard - App Hardening',
-            '# Protect sensitive files in app directory',
-            '<FilesMatch "\.(log|ini|sh|bak|conf|sql|env)$">',
+        $app_deny_rules = [
             '    <IfModule mod_authz_core.c>',
             '        Require all denied',
             '    </IfModule>',
@@ -365,7 +362,26 @@ final class Secure_Guard_WP_Hardening {
             '        Order deny,allow',
             '        Deny from all',
             '    </IfModule>',
+        ];
+        $app_rules = [
+            '# BEGIN Secure Guard - App Hardening',
+            '# Protect sensitive and executable files in app/wp-content',
+            'Options -Indexes',
+            '<FilesMatch "^\.">',
+            ...$app_deny_rules,
             '</FilesMatch>',
+            '<FilesMatch "\.(php|php3|php4|php5|phtml|phar|pl|py|jsp|asp|aspx|cgi|sh|log|ini|conf|bak|sql|env|gz|tar|zip)$">',
+            ...$app_deny_rules,
+            '</FilesMatch>',
+            '<FilesMatch "^(composer\.(json|lock)|package\.json|yarn\.lock|pnpm-lock\.yaml|\.htpasswd)$">',
+            ...$app_deny_rules,
+            '</FilesMatch>',
+            '<IfModule mod_rewrite.c>',
+            '    RewriteEngine On',
+            '    RewriteCond %{REQUEST_FILENAME} -f',
+            '    RewriteCond %{REQUEST_URI} !\.(css|js|mjs|map|json|jpg|jpeg|png|gif|webp|svg|ico|woff|woff2|ttf|eot|otf|pdf|txt|xml|mp4|webm|mp3|wav|avif)$ [NC]',
+            '    RewriteRule ^ - [F,L]',
+            '</IfModule>',
             '# END Secure Guard - App Hardening'
         ];
         self::write_to_htaccess($app_htaccess, implode("\n", $app_rules));
@@ -492,21 +508,43 @@ final class Secure_Guard_WP_Hardening {
         $results = [];
         $site_url = site_url();
         
-        $paths_to_test = [
-            'readme.html' => '/readme.html',
-            'license.txt' => '/license.txt',
-            'debug.log'   => '/app/debug.log',
-        ];
-
         // Bedrock check
         $is_bedrock = str_ends_with(rtrim(str_replace('\\', '/', ABSPATH), '/'), '/wp') || 
                       file_exists(dirname(ABSPATH) . '/config/application.php');
-        if (!$is_bedrock) {
-            $paths_to_test['debug.log'] = '/wp-content/debug.log';
-        }
 
-        foreach ($paths_to_test as $name => $path) {
-            $url = rtrim($site_url, '/') . $path;
+        $paths_to_test = [
+            'readme.html' => [
+                'path' => '/readme.html',
+                'label' => __('WordPress readme', 'wp-secure-guard'),
+            ],
+            'license.txt' => [
+                'path' => '/license.txt',
+                'label' => __('WordPress license', 'wp-secure-guard'),
+            ],
+            'debug.log' => [
+                'path' => $is_bedrock ? '/app/debug.log' : '/wp-content/debug.log',
+                'label' => __('Debug log', 'wp-secure-guard'),
+            ],
+            'error_log' => [
+                'path' => $is_bedrock ? '/app/error_log' : '/wp-content/error_log',
+                'label' => __('Error log', 'wp-secure-guard'),
+            ],
+            'app_env' => [
+                'path' => $is_bedrock ? '/app/.env' : '/wp-content/.env',
+                'label' => __('App .env', 'wp-secure-guard'),
+            ],
+            'app_composer' => [
+                'path' => $is_bedrock ? '/app/composer.json' : '/wp-content/composer.json',
+                'label' => __('App composer.json', 'wp-secure-guard'),
+            ],
+            'app_unknown_path' => [
+                'path' => $is_bedrock ? '/app/dsd' : '/wp-content/dsd',
+                'label' => __('Unknown app file', 'wp-secure-guard'),
+            ],
+        ];
+
+        foreach ($paths_to_test as $name => $test) {
+            $url = rtrim($site_url, '/') . $test['path'];
             
             // Perform local/external HTTP request
             $response = wp_remote_get($url, [
@@ -520,6 +558,8 @@ final class Secure_Guard_WP_Hardening {
                     'status' => 'unknown',
                     'code'   => 0,
                     'msg'    => $response->get_error_message(),
+                    'label'  => $test['label'],
+                    'path'   => $test['path'],
                 ];
                 continue;
             }
@@ -531,18 +571,24 @@ final class Secure_Guard_WP_Hardening {
                     'status' => 'exposed',
                     'code'   => $code,
                     'msg'    => __('Exposed! File is publicly downloadable.', 'wp-secure-guard'),
+                    'label'  => $test['label'],
+                    'path'   => $test['path'],
                 ];
             } elseif ($code >= 400) {
                 $results[$name] = [
                     'status' => 'protected',
                     'code'   => $code,
                     'msg'    => sprintf(__('Protected (Returned %d)', 'wp-secure-guard'), $code),
+                    'label'  => $test['label'],
+                    'path'   => $test['path'],
                 ];
             } else {
                 $results[$name] = [
                     'status' => 'unknown',
                     'code'   => $code,
                     'msg'    => sprintf(__('Unsure (Returned %d)', 'wp-secure-guard'), $code),
+                    'label'  => $test['label'],
+                    'path'   => $test['path'],
                 ];
             }
         }
