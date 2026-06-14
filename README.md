@@ -53,6 +53,7 @@ It is specifically engineered for decoupled architectures (headless WordPress), 
 *   **WordPress Version Hiding:** Strips generator meta tags, style/script version parameters, and blocks public exposure of `readme.html` or `license.txt`.
 *   **Security Header Injection:** Configures robust modern HTTP security headers including balanced Content Security Policy (CSP), `Referrer-Policy`, `Permissions-Policy`, cross-origin policies (COOP/CORP), and HTTP Strict Transport Security (HSTS).
 *   **Public WP-Cron Protection:** Rejects external HTTP requests targeting `wp-cron.php` while preserving CLI and loopback crons.
+*   **Bedrock App Path Shield:** Writes scoped app/wp-content rules that block direct access to logs, dotfiles, package metadata, executable files, and unknown non-static files such as `/app/dsd`, while allowing normal static assets.
 *   **Self-Protection:** Guards itself against accidental or malicious deactivation from the WordPress administrator panel.
 
 ### 5. File Integrity Monitoring
@@ -111,6 +112,11 @@ Add the repository source to your Bedrock `composer.json` file:
 }
 ```
 Run `composer update` and activate the plugin. The Must-Use watchdog plugin will be deployed automatically to `/app/mu-plugins/` (or your configured path).
+
+After activation, open **Security API Guard -> Security Assistant** and review
+**Bedrock & App Path Shield**. The panel checks common direct-access probes such
+as `/app/debug.log`, `/app/.env`, `/app/composer.json`, and `/app/dsd`, then lets
+an administrator refresh the generated `.htaccess` hardening rules.
 
 ---
 

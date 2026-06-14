@@ -26,6 +26,7 @@ final class Secure_Guard_Security_Assistant_Page {
         add_action('admin_post_sg_apply_security_preset', [$this, 'handle_apply_preset']);
         add_action('admin_post_sg_rollback_security_preset', [$this, 'handle_rollback_preset']);
         add_action('admin_post_sg_lockdown_control', [$this, 'handle_lockdown_control']);
+        add_action('admin_post_sg_refresh_hardening_rules', [$this, 'handle_refresh_hardening_rules']);
     }
 
     public function handle_apply_preset(): void {
@@ -144,6 +145,25 @@ final class Secure_Guard_Security_Assistant_Page {
         exit;
     }
 
+    public function handle_refresh_hardening_rules(): void {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Unauthorized', 'wp-secure-guard'));
+        }
+
+        check_admin_referer('sg_refresh_hardening_rules');
+
+        Secure_Guard_WP_Hardening::write_htaccess_protection();
+        update_option('secure_guard_htaccess_hardened', 1, false);
+        delete_transient('sg_dashboard_stats');
+
+        $this->logs->log('/wp-admin/admin.php?page=secure-guard-assistant', 'POST', 'ALLOWED', 'Hardening rules refreshed', [
+            'user_id' => get_current_user_id(),
+        ]);
+
+        wp_safe_redirect(admin_url('admin.php?page=secure-guard-assistant&hardening_refreshed=1'));
+        exit;
+    }
+
     public function render(): void {
         if (!current_user_can('manage_options')) {
             wp_die(esc_html__('Unauthorized', 'wp-secure-guard'));
@@ -176,6 +196,7 @@ final class Secure_Guard_Security_Assistant_Page {
         echo '</div>';
 
         $this->render_preset_cards($current_preset, $saved_preset);
+        $this->render_bedrock_hardening_status();
         $this->render_lockdown_panel($lock_data, $settings);
         $this->render_recommendations($recommendations);
 
@@ -212,6 +233,10 @@ final class Secure_Guard_Security_Assistant_Page {
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         if (!empty($_GET['lockdown_disabled'])) {
             echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html__('Lockdown controls are disabled in Adaptive Security settings.', 'wp-secure-guard') . '</p></div>';
+        }
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        if (!empty($_GET['hardening_refreshed'])) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Web-server hardening rules refreshed.', 'wp-secure-guard') . '</p></div>';
         }
     }
 
@@ -338,6 +363,46 @@ final class Secure_Guard_Security_Assistant_Page {
         echo '</select></label>';
         echo '<label>' . esc_html__('Reason:', 'wp-secure-guard') . ' <input type="text" name="reason" class="regular-text" value="' . esc_attr__('Manual emergency lockdown', 'wp-secure-guard') . '" /></label>';
         submit_button(__('Enable Emergency Lockdown', 'wp-secure-guard'), 'delete', 'submit', false, ['onclick' => 'return confirm(\'' . esc_js(__('Enable emergency lockdown now?', 'wp-secure-guard')) . '\')']);
+        echo '</form>';
+        echo '</div>';
+    }
+
+    private function render_bedrock_hardening_status(): void {
+        $results = Secure_Guard_WP_Hardening::test_exposure_status();
+
+        echo '<h2 style="margin-top:24px;">' . esc_html__('Bedrock & App Path Shield', 'wp-secure-guard') . '</h2>';
+        echo '<div class="card sg-lockdown-card sg-bedrock-shield">';
+        echo '<p class="description">' . esc_html__('Checks direct access to WordPress and Bedrock app files that should be blocked before PHP handles the request.', 'wp-secure-guard') . '</p>';
+
+        if ($results === []) {
+            echo '<p><span class="sg-pill sg-pill--warning">' . esc_html__('Unknown', 'wp-secure-guard') . '</span> ' . esc_html__('No exposure checks are available.', 'wp-secure-guard') . '</p>';
+        } else {
+            echo '<div class="sg-exposure-list">';
+            foreach ($results as $result) {
+                $status = sanitize_key((string) ($result['status'] ?? 'unknown'));
+                $pill_class = 'sg-pill--warning';
+                if ($status === 'protected') {
+                    $pill_class = 'sg-pill--allowed';
+                } elseif ($status === 'exposed') {
+                    $pill_class = 'sg-pill--blocked';
+                }
+
+                echo '<div class="sg-exposure-row">';
+                echo '<div>';
+                echo '<strong>' . esc_html((string) ($result['label'] ?? __('Exposure check', 'wp-secure-guard'))) . '</strong>';
+                echo '<code>' . esc_html((string) ($result['path'] ?? '')) . '</code>';
+                echo '<p class="description">' . esc_html((string) ($result['msg'] ?? '')) . '</p>';
+                echo '</div>';
+                echo '<span class="sg-pill ' . esc_attr($pill_class) . '">' . esc_html($status) . '</span>';
+                echo '</div>';
+            }
+            echo '</div>';
+        }
+
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="margin-top:14px;">';
+        echo '<input type="hidden" name="action" value="sg_refresh_hardening_rules" />';
+        wp_nonce_field('sg_refresh_hardening_rules');
+        submit_button(__('Refresh Hardening Rules', 'wp-secure-guard'), 'secondary', 'submit', false);
         echo '</form>';
         echo '</div>';
     }
