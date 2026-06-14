@@ -1,6 +1,14 @@
 /* Secure Guard — Admin UI Stylesheet */
 
 /* =========================================================
+   Full-width override — remove WP's default .wrap max-width
+   ========================================================= */
+.secure-guard-ui.wrap {
+	max-width: none !important;
+	margin-right: 20px !important;
+}
+
+/* =========================================================
    Custom properties & Modern Design Tokens
    ========================================================= */
 .secure-guard-ui {
@@ -65,7 +73,55 @@
 	line-height: 1.5;
 	margin-top: 0;
 	margin-bottom: 20px;
-	max-width: 1000px;
+	max-width: 100%;
+}
+
+/* =========================================================
+   Page header layout
+   ========================================================= */
+.secure-guard-ui .sg-page-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 20px;
+	flex-wrap: wrap;
+	border-bottom: 1px solid var(--sg-border-color);
+	padding-bottom: 16px;
+}
+
+.secure-guard-ui .sg-page-header h1 {
+	margin: 0;
+	flex: 0 0 auto;
+}
+
+.secure-guard-ui .sg-header-actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+	align-items: center;
+}
+
+.secure-guard-ui .sg-header-meta {
+	margin-left: auto;
+	color: var(--sg-text-muted);
+	font-size: 12px;
+}
+
+/* =========================================================
+   Section headings inside form tables
+   ========================================================= */
+.secure-guard-ui .sg-section-heading {
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--sg-text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.6px;
+	padding: 16px 0 4px;
+	margin: 0;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	border-top: 1px solid var(--sg-border-color);
 }
 
 /* =========================================================
@@ -102,6 +158,21 @@
 	padding: 24px !important;
 	border-top-left-radius: 0 !important;
 	margin-top: -21px !important;
+}
+
+/* Secret input + button row */
+.secure-guard-ui .sg-secret-wrap {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.secure-guard-ui .sg-secret-wrap input[type="password"],
+.secure-guard-ui .sg-secret-wrap input[type="text"] {
+	flex: 1 1 260px;
+	min-width: 180px;
+	max-width: 480px !important;
 }
 
 /* =========================================================
@@ -317,9 +388,54 @@
 	margin-top: auto;
 }
 
+.secure-guard-ui .sg-ops-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: var(--sg-gap);
+	margin-bottom: 24px;
+}
+
+.secure-guard-ui .sg-ops-card {
+	padding: 18px;
+	border: 1px solid var(--sg-border-color);
+	border-radius: var(--sg-border-radius);
+	background: #fff;
+}
+
+.secure-guard-ui .sg-ops-card h3 {
+	margin: 12px 0 6px;
+	font-size: 15px;
+	font-weight: 700;
+	color: var(--sg-text-dark);
+}
+
+.secure-guard-ui .sg-ops-card .description {
+	margin: 0;
+	font-size: 13px;
+}
+
 .secure-guard-ui .sg-lockdown-card,
 .secure-guard-ui .sg-recommendations-card {
 	padding: 24px !important;
+}
+
+.secure-guard-ui .sg-section-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	margin-bottom: 14px;
+}
+
+.secure-guard-ui .sg-section-header .description {
+	margin: 0;
+}
+
+.secure-guard-ui .sg-section-header__badges {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
 }
 
 .secure-guard-ui .sg-recommendation-list {
@@ -442,7 +558,9 @@
 }
 
 .secure-guard-ui .form-table th {
-	width: 260px;
+	width: 25% !important;
+	min-width: 200px;
+	max-width: 300px;
 	padding: 20px 16px 20px 0 !important;
 	font-weight: 600 !important;
 	font-size: 14px !important;
@@ -474,6 +592,29 @@
 	color: var(--sg-text-dark) !important;
 	transition: var(--sg-transition) !important;
 	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+	box-sizing: border-box !important;
+}
+
+/* Full-width text/password inputs in settings */
+.secure-guard-ui .form-table input[type="text"].large-text,
+.secure-guard-ui .form-table input[type="text"].regular-text,
+.secure-guard-ui .form-table input[type="password"].regular-text,
+.secure-guard-ui .form-table input[type="password"] {
+	width: 100% !important;
+	max-width: 620px !important;
+}
+
+/* Textarea full-width */
+.secure-guard-ui .form-table textarea {
+	width: 100% !important;
+	max-width: 680px !important;
+	resize: vertical !important;
+}
+
+/* Number inputs stay compact */
+.secure-guard-ui .form-table input[type="number"] {
+	width: 90px !important;
+	max-width: 90px !important;
 }
 
 .secure-guard-ui .form-table input[type="text"]:focus,
@@ -528,6 +669,59 @@
 	gap: 8px;
 	flex-wrap: wrap;
 	align-items: center;
+}
+
+/* =========================================================
+   Filter bar
+   ========================================================= */
+.secure-guard-ui .sg-filter-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 16px;
+	padding: 12px 16px;
+	background: #f8fafc;
+	border: 1px solid var(--sg-border-color);
+	border-radius: var(--sg-border-radius-sm);
+}
+
+.secure-guard-ui .sg-filter-bar strong {
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--sg-text-muted);
+}
+
+.secure-guard-ui .sg-filter-bar label {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 13px;
+	color: var(--sg-text-dark);
+}
+
+.secure-guard-ui .sg-filter-bar input[type="text"],
+.secure-guard-ui .sg-filter-bar input[type="date"] {
+	border: 1px solid var(--sg-border-color) !important;
+	border-radius: var(--sg-border-radius-sm) !important;
+	padding: 5px 10px !important;
+	font-size: 13px !important;
+	background: #fff !important;
+}
+
+/* Bot-UA chip buttons */
+.secure-guard-ui .sg-bot-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 10px;
+}
+
+.secure-guard-ui .sg-bot-chips .button {
+	border-radius: 9999px !important;
+	padding: 3px 12px !important;
+	font-size: 12px !important;
 }
 
 /* =========================================================
@@ -676,6 +870,15 @@
 /* =========================================================
    Docs Page Dashboard Card
    ========================================================= */
+.sg-docs-dashboard.card {
+	display: flex !important;
+	align-items: center !important;
+	gap: 20px !important;
+	border-left: 4px solid var(--sg-primary) !important;
+	background: linear-gradient(to right, #fff, var(--sg-primary-light)) !important;
+	margin-top: 24px !important;
+}
+
 .sg-docs-dashboard h3 {
 	color: var(--sg-primary) !important;
 }
@@ -800,8 +1003,8 @@
    ========================================================= */
 .sg-docs-layout {
 	display: grid;
-	grid-template-columns: 260px 1fr;
-	gap: 24px;
+	grid-template-columns: 240px 1fr;
+	gap: 28px;
 	align-items: start;
 	margin-top: 20px;
 }
@@ -816,6 +1019,21 @@
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
+.secure-guard-ui .sg-docs-nav-group-label {
+	display: block;
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.8px;
+	color: var(--sg-text-muted);
+	padding: 12px 12px 4px;
+	margin-top: 4px;
+}
+
+.secure-guard-ui .sg-docs-nav-group-label:first-child {
+	padding-top: 2px;
+}
+
 .secure-guard-ui .sg-docs-nav ul {
 	margin: 0;
 	padding: 0;
@@ -823,18 +1041,21 @@
 }
 
 .secure-guard-ui .sg-docs-nav li {
-	margin-bottom: 4px;
+	margin-bottom: 2px;
 }
 
 .secure-guard-ui .sg-docs-nav a {
-	display: block;
-	padding: 8px 12px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 7px 12px;
 	border-radius: var(--sg-border-radius-sm);
 	color: var(--sg-text-muted);
 	font-weight: 500;
 	text-decoration: none;
 	transition: var(--sg-transition);
 	font-size: 13px;
+	line-height: 1.3;
 }
 
 .secure-guard-ui .sg-docs-nav a:hover,
@@ -843,10 +1064,84 @@
 	color: var(--sg-primary);
 }
 
+.secure-guard-ui .sg-docs-nav a.is-active {
+	background: var(--sg-primary-light);
+	color: var(--sg-primary);
+	font-weight: 600;
+}
+
 .secure-guard-ui .sg-docs-content .card {
-	padding: 24px;
-	margin-bottom: 24px;
+	padding: 28px;
+	margin-bottom: 20px;
 	border-top: 4px solid var(--sg-primary) !important;
+	border-radius: 0 0 var(--sg-border-radius) var(--sg-border-radius) !important;
+}
+
+.secure-guard-ui .sg-docs-content .card h2 {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-top: 0;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--sg-border-color);
+}
+
+.secure-guard-ui .sg-docs-icon {
+	width: 32px;
+	height: 32px;
+	background: var(--sg-primary-light);
+	border-radius: 8px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--sg-primary);
+	flex-shrink: 0;
+}
+
+.secure-guard-ui .sg-docs-icon .dashicons {
+	width: 18px;
+	height: 18px;
+	font-size: 18px;
+}
+
+/* Quick-nav cards at top of docs */
+.secure-guard-ui .sg-docs-quicknav {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	gap: 12px;
+	margin-bottom: 24px;
+}
+
+.secure-guard-ui .sg-docs-quicknav a {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 16px;
+	background: #fff;
+	border: 1px solid var(--sg-border-color);
+	border-radius: var(--sg-border-radius-sm);
+	text-decoration: none;
+	color: var(--sg-text-dark);
+	font-size: 13px;
+	font-weight: 600;
+	transition: var(--sg-transition);
+	text-align: center;
+}
+
+.secure-guard-ui .sg-docs-quicknav a:hover {
+	border-color: var(--sg-primary);
+	color: var(--sg-primary);
+	background: var(--sg-primary-light);
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(59,130,246,0.1);
+}
+
+.secure-guard-ui .sg-docs-quicknav a .dashicons {
+	width: 24px;
+	height: 24px;
+	font-size: 24px;
+	color: var(--sg-primary);
 }
 
 .secure-guard-ui .sg-docs-content pre {
@@ -860,9 +1155,27 @@
 /* =========================================================
    Responsive breakpoints
    ========================================================= */
-@media (max-width: 1200px) {
+@media (min-width: 1400px) {
+	.secure-guard-ui .sg-metric-grid {
+		grid-template-columns: repeat(4, 1fr);
+	}
+}
+
+@media (max-width: 1399px) and (min-width: 1100px) {
+	.secure-guard-ui .sg-metric-grid {
+		grid-template-columns: repeat(3, 1fr);
+	}
+}
+
+@media (max-width: 1099px) and (min-width: 783px) {
 	.secure-guard-ui .sg-metric-grid {
 		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+@media (max-width: 960px) {
+	.sg-docs-layout {
+		grid-template-columns: 200px 1fr;
 	}
 }
 
@@ -884,24 +1197,37 @@
 	}
 
 	.secure-guard-ui .form-table th {
-		width: auto;
+		width: auto !important;
+		max-width: none !important;
 	}
 
-	/* Filter bar */
+	.secure-guard-ui .form-table input[type="text"].large-text,
+	.secure-guard-ui .form-table input[type="text"].regular-text,
+	.secure-guard-ui .form-table input[type="password"] {
+		max-width: 100% !important;
+	}
+
+	.secure-guard-ui .form-table textarea {
+		max-width: 100% !important;
+	}
+
 	.secure-guard-ui .sg-filter-bar {
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 10px;
 	}
 
-	/* Token action rows */
 	.secure-guard-ui .sg-action-row {
 		flex-direction: column;
 		align-items: flex-start;
 	}
 
-	/* Metric card numbers */
 	.secure-guard-ui .sg-metric-card__number {
 		font-size: 24px;
+	}
+
+	.sg-docs-dashboard.card {
+		flex-direction: column !important;
+		align-items: flex-start !important;
 	}
 }

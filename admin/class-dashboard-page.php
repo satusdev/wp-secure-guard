@@ -87,10 +87,9 @@ final class Secure_Guard_Dashboard_Page {
         $last_scan = Secure_Guard_File_Integrity_Monitor::get_last_scan();
 
         echo '<div class="wrap secure-guard-ui">';
+        echo '<div class="sg-page-header">';
         echo '<h1>' . esc_html__('Security Dashboard', 'wp-secure-guard') . '</h1>';
-
-        // ── top action row ──────────────────────────────────────────────
-        echo '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">';
+        echo '<div class="sg-header-actions">';
         echo '<a class="button button-primary" href="' . esc_url($assistant_url) . '">' . esc_html__('Security Assistant', 'wp-secure-guard') . '</a>';
         echo '<a class="button button-primary" href="' . esc_url($tokens_url) . '">' . esc_html__('Manage Tokens', 'wp-secure-guard') . '</a>';
         echo '<a class="button" href="' . esc_url($logs_url) . '">' . esc_html__('View Logs', 'wp-secure-guard') . '</a>';
@@ -98,8 +97,9 @@ final class Secure_Guard_Dashboard_Page {
         echo '<a class="button" href="' . esc_url($whitelists_url) . '">' . esc_html__('Whitelists', 'wp-secure-guard') . '</a>';
         echo '<a class="button" href="' . esc_url($rules_url) . '">' . esc_html__('Security Rules', 'wp-secure-guard') . '</a>';
         echo '<a class="button" href="' . esc_url($settings_url) . '">' . esc_html__('Settings', 'wp-secure-guard') . '</a>';
+        echo '</div>';
         if ($cached_label !== '') {
-            echo '<span style="color:#646970;font-size:12px;margin-left:auto;">' . esc_html($cached_label) . ' &mdash; <a href="' . esc_url($refresh_url) . '">' . esc_html__('Refresh now', 'wp-secure-guard') . '</a></span>';
+            echo '<span class="sg-header-meta">' . esc_html($cached_label) . ' &mdash; <a href="' . esc_url($refresh_url) . '">' . esc_html__('Refresh now', 'wp-secure-guard') . '</a></span>';
         }
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         if (!empty($_GET['refreshed'])) {
@@ -174,7 +174,7 @@ final class Secure_Guard_Dashboard_Page {
         // ── attack clusters ─────────────────────────────────────────────
         $clusters = $stats['clusters'] ?? [];
         if (!empty($clusters)) {
-            echo '<h2 style="margin-top:30px;">' . esc_html__('Attack Vectors (Last 24h)', 'wp-secure-guard') . '</h2>';
+            echo '<h2>' . esc_html__('Attack Vectors (Last 24h)', 'wp-secure-guard') . '</h2>';
             echo '<div class="sg-metric-grid">';
             foreach ($clusters as $c) {
                 $cluster_name = str_replace('_', ' ', ucfirst((string) ($c['cluster'] ?? 'unknown')));
@@ -229,7 +229,7 @@ final class Secure_Guard_Dashboard_Page {
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         $show_curl = !empty($_GET['show_curl']) ? 'open' : '';
         echo '<details style="margin-top:20px;" ' . esc_attr($show_curl) . '>';
-        echo '<summary style="cursor:pointer;font-size:14px;font-weight:600;color:#2271b1;padding:4px 0;">';
+        echo '<summary style="cursor:pointer;font-size:14px;font-weight:600;color:var(--sg-primary);padding:4px 0;">';
         echo esc_html__('Quick Verification (curl examples)', 'wp-secure-guard');
         echo '</summary>';
         echo '<div class="card">';

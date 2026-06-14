@@ -202,7 +202,7 @@ final class Secure_Guard_Settings_Page {
                     __('Per-token request cap applied to external Bearer token callers.', 'wp-secure-guard'),
                     1
                 );
-                echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:13px;font-weight:600;border-top:1px solid #dcdcde;padding-top:12px;">'
+                echo '<tr><th colspan="2"><h3 class="sg-section-heading"><span class="dashicons dashicons-admin-network"></span>'
                     . esc_html__('JWT Configuration', 'wp-secure-guard') . '</h3></th></tr>';
                 // AUTH_KEY fallback warning — shown when no explicit secret is configured anywhere.
                 if (empty($s['jwt_secret']) && !defined('SECURE_GUARD_JWT_SECRET') && !Secure_Guard_Config::is_env_overridden('jwt_secret')) {
@@ -271,49 +271,48 @@ final class Secure_Guard_Settings_Page {
                 break;
 
             case 'whitelist':
-                echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:13px;font-weight:600;padding-top:4px;">'
+                echo '<tr><th colspan="2"><h3 class="sg-section-heading"><span class="dashicons dashicons-shield"></span>'
                      . esc_html__( 'Global Access Rules', 'wp-secure-guard' ) . '</h3></th></tr>';
 
                 echo '<tr><th>' . esc_html__( 'Global IP Whitelist', 'wp-secure-guard' ) . '</th><td>';
-                echo '<textarea rows="6" cols="60" name="' . esc_attr( $k ) . '[ip_whitelist]">'
+                echo '<textarea rows="6" class="large-text" name="' . esc_attr( $k ) . '[ip_whitelist]">'
                      . esc_textarea( (string) $s['ip_whitelist'] ) . '</textarea>';
                 echo '<p class="description">' . esc_html__( 'One IPv4 / IPv6 / CIDR per line. These IPs bypass all rate limiting and block checks.', 'wp-secure-guard' ) . '</p></td></tr>';
 
                 echo '<tr><th>' . esc_html__( 'Admin Area IP Whitelist', 'wp-secure-guard' ) . '</th><td>';
-                echo '<textarea rows="4" cols="60" name="' . esc_attr( $k ) . '[admin_ip_whitelist]">'
+                echo '<textarea rows="4" class="large-text" name="' . esc_attr( $k ) . '[admin_ip_whitelist]">'
                      . esc_textarea( (string) $s['admin_ip_whitelist'] ) . '</textarea>';
                 echo '<p class="description">' . esc_html__( 'If set, only these IPs can access /wp-admin pages (except admin-ajax.php).', 'wp-secure-guard' ) . '</p></td></tr>';
 
                 echo '<tr><th>' . esc_html__( 'Allowed REST Namespaces', 'wp-secure-guard' ) . '</th><td>';
-                echo '<textarea rows="6" cols="60" name="' . esc_attr( $k ) . '[allowed_rest_namespaces]">'
+                echo '<textarea rows="6" class="large-text" name="' . esc_attr( $k ) . '[allowed_rest_namespaces]">'
                      . esc_textarea( (string) ( $s['allowed_rest_namespaces'] ?? '' ) ) . '</textarea>';
                 echo '<p class="description">' . esc_html__( 'One REST namespace per line (e.g. contact-form-7/v1). These bypass JWT enforcement and REST Strict Mode.', 'wp-secure-guard' ) . '</p></td></tr>';
 
                 echo '<tr><th>' . esc_html__( 'Allowed Bot User-Agents / Ping Services', 'wp-secure-guard' ) . '</th><td>';
-                echo '<textarea id="sg_allowed_bot_user_agents" rows="6" cols="60" name="' . esc_attr( $k ) . '[allowed_bot_user_agents]">'
+                echo '<textarea id="sg_allowed_bot_user_agents" rows="6" class="large-text" name="' . esc_attr( $k ) . '[allowed_bot_user_agents]">'
                      . esc_textarea( (string) ( $s['allowed_bot_user_agents'] ?? '' ) ) . '</textarea>';
                 echo '<p class="description">' . esc_html__( 'One User-Agent substring per line (e.g. UptimeRobot, Pingdom). Requests containing these User-Agents will bypass the behavioral bot fingerprinting and bad bot blocks.', 'wp-secure-guard' ) . '</p>';
-                echo '<div style="margin-top: 10px;">';
-                echo '<span style="font-weight: 500; display: block; margin-bottom: 5px;">' . esc_html__('Quick Allow Bot Services:', 'wp-secure-guard') . '</span>';
+                echo '<div class="sg-bot-chips">';
                 $common_bots = [
                     'UptimeRobot' => 'UptimeRobot',
                     'Pingdom' => 'Pingdom',
                     'BetterStack' => 'BetterStack',
                     'NodePing' => 'NodePing',
                     'NewRelic' => 'New Relic',
-                    'curl' => 'curl (Command line)',
+                    'curl' => 'curl',
                 ];
                 foreach ($common_bots as $ua_key => $ua_label) {
-                    echo '<button type="button" class="button button-small sg-add-bot-ua" data-ua="' . esc_attr($ua_key) . '" style="margin-right: 5px; margin-bottom: 5px;">+ ' . esc_html($ua_label) . '</button>';
+                    echo '<button type="button" class="button sg-add-bot-ua" data-ua="' . esc_attr($ua_key) . '">+ ' . esc_html($ua_label) . '</button>';
                 }
                 echo '</div>';
                 echo '</td></tr>';
 
-                echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:13px;font-weight:600;border-top:1px solid #dcdcde;padding-top:12px;">'
+                echo '<tr><th colspan="2"><h3 class="sg-section-heading"><span class="dashicons dashicons-networking"></span>'
                      . esc_html__( 'Infrastructure & Proxy', 'wp-secure-guard' ) . '</h3></th></tr>';
 
                 echo '<tr><th>' . esc_html__( 'Trusted Proxy IPs', 'wp-secure-guard' ) . '</th><td>';
-                echo '<textarea rows="4" cols="60" name="' . esc_attr( $k ) . '[trusted_proxy_ips]">'
+                echo '<textarea rows="4" class="large-text" name="' . esc_attr( $k ) . '[trusted_proxy_ips]">'
                      . esc_textarea( (string) ( $s['trusted_proxy_ips'] ?? '' ) ) . '</textarea>';
                 echo '<p class="description">' . esc_html__( 'Forwarded-For headers are trusted only when REMOTE_ADDR matches this list. Essential for Cloudflare/Varnish.', 'wp-secure-guard' ) . '</p></td></tr>';
 
@@ -430,41 +429,41 @@ final class Secure_Guard_Settings_Page {
 
                 $scan_url = wp_nonce_url(add_query_arg(['tab' => 'hardening', 'run_exposure_test' => '1'], admin_url('admin.php?page=secure-guard-settings')), 'sg_run_exposure_test');
                 
-                echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:14px;font-weight:600;padding-bottom:4px;border-bottom:1px solid #dcdcde;">'
+                echo '<tr><th colspan="2"><h3 class="sg-section-heading" style="border-top:none;padding-top:0;"><span class="dashicons dashicons-search"></span>'
                      . esc_html__('Path Exposure Scanner', 'wp-secure-guard') . '</h3></th></tr>';
-                echo '<tr><td colspan="2"><div style="background:#fcfcfc; border:1px solid #ccd0d4; padding:20px; border-radius:6px; margin-bottom:20px; box-shadow:0 1px 1px rgba(0,0,0,.04);">';
-                echo '<p style="margin:0 0 15px; font-weight:600; font-size:13px; color:#1d2327;">' . esc_html__('Real-time public exposure status of sensitive files:', 'wp-secure-guard') . '</p>';
-                echo '<table class="wp-list-table widefat fixed striped" style="margin-bottom:15px; border:1px solid #dcdcde; box-shadow:none;">';
+                echo '<tr><td colspan="2"><div class="card" style="margin:0 0 16px;box-shadow:none !important;">';
+                echo '<p class="description" style="margin:0 0 12px;">' . esc_html__('Real-time public exposure status of sensitive files:', 'wp-secure-guard') . '</p>';
+                echo '<table class="widefat striped">';
                 echo '<thead><tr>';
-                echo '<th style="padding:10px; font-weight:600;">' . esc_html__('Path', 'wp-secure-guard') . '</th>';
-                echo '<th style="padding:10px; font-weight:600; width:120px;">' . esc_html__('Status', 'wp-secure-guard') . '</th>';
-                echo '<th style="padding:10px; font-weight:600;">' . esc_html__('Details', 'wp-secure-guard') . '</th>';
+                echo '<th>' . esc_html__('Path', 'wp-secure-guard') . '</th>';
+                echo '<th style="width:120px;">' . esc_html__('Status', 'wp-secure-guard') . '</th>';
+                echo '<th>' . esc_html__('Details', 'wp-secure-guard') . '</th>';
                 echo '</tr></thead>';
                 echo '<tbody>';
-                
+
                 foreach ($exposure_results as $file => $info) {
-                    $status_bg = '#d63638'; // red
+                    $pill_class = 'sg-pill--blocked';
                     $status_text = __('Exposed', 'wp-secure-guard');
                     if ($info['status'] === 'protected') {
-                        $status_bg = '#00a32a'; // green
+                        $pill_class = 'sg-pill--allowed';
                         $status_text = __('Protected', 'wp-secure-guard');
                     } elseif ($info['status'] === 'unknown') {
-                        $status_bg = '#cca300'; // yellow
+                        $pill_class = 'sg-pill--warning';
                         $status_text = __('Unreachable', 'wp-secure-guard');
                     }
-                    
+
                     echo '<tr>';
-                    echo '<td style="padding:10px; font-family:monospace; font-weight:600;">' . esc_html($file) . '</td>';
-                    echo '<td style="padding:10px;"><span style="display:inline-block; background:' . esc_attr($status_bg) . '; color:#fff; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; text-align:center; min-width:80px;">' . esc_html($status_text) . '</span></td>';
-                    echo '<td style="padding:10px; color:#50575e;">' . esc_html($info['msg']) . '</td>';
+                    echo '<td><code>' . esc_html($file) . '</code></td>';
+                    echo '<td><span class="sg-pill ' . esc_attr($pill_class) . '">' . esc_html($status_text) . '</span></td>';
+                    echo '<td>' . esc_html($info['msg']) . '</td>';
                     echo '</tr>';
                 }
                 echo '</tbody>';
                 echo '</table>';
-                echo '<a href="' . esc_url($scan_url) . '" class="button button-secondary" style="font-weight:600;">' . esc_html__('Run Exposure Scan Now', 'wp-secure-guard') . '</a>';
+                echo '<div style="margin-top:14px;"><a href="' . esc_url($scan_url) . '" class="button button-secondary">' . esc_html__('Run Exposure Scan Now', 'wp-secure-guard') . '</a></div>';
                 echo '</div></td></tr>';
 
-                echo '<tr><th colspan="2"><h3 style="margin:8px 0 0;font-size:14px;font-weight:600;padding-bottom:4px;border-bottom:1px solid #dcdcde;">'
+                echo '<tr><th colspan="2"><h3 class="sg-section-heading"><span class="dashicons dashicons-lock"></span>'
                      . esc_html__('Security Hardening Options', 'wp-secure-guard') . '</h3></th></tr>';
 
                 $this->row_checkbox($k, 'hide_wp_info', $s,
@@ -548,7 +547,7 @@ final class Secure_Guard_Settings_Page {
                         $nginx_rules .= "}\n";
                     }
 
-                    echo '<tr><th colspan="2"><h3 style="margin:18px 0 0;font-size:14px;font-weight:600;padding-bottom:4px;border-bottom:1px solid #dcdcde;">'
+                    echo '<tr><th colspan="2"><h3 class="sg-section-heading"><span class="dashicons dashicons-admin-tools"></span>'
                          . esc_html__('Nginx Server Hardening', 'wp-secure-guard') . '</h3></th></tr>';
                     echo '<tr><td colspan="2">';
                     echo '<div class="notice notice-warning inline" style="margin:4px 0 12px; display:block; padding:10px 15px; border-left-color:#dba617;">';
@@ -639,7 +638,7 @@ final class Secure_Guard_Settings_Page {
 
     private function row_number(string $k, string $field, array $s, string $label, string $desc = '', int $min = 1): void {
         echo '<tr><th>' . esc_html($label) . '</th><td>';
-        echo '<input type="number" min="' . esc_attr((string) $min) . '" class="small-text"'
+        echo '<input type="number" min="' . esc_attr((string) $min) . '"'
             . ' name="' . esc_attr($k) . '[' . esc_attr($field) . ']"'
             . ' value="' . esc_attr((string) ($s[$field] ?? $min)) . '" />';
         if ($desc !== '') {
@@ -650,7 +649,7 @@ final class Secure_Guard_Settings_Page {
 
     private function row_text(string $k, string $field, array $s, string $label, string $desc = ''): void {
         echo '<tr><th>' . esc_html($label) . '</th><td>';
-        echo '<input type="text" class="regular-text"'
+        echo '<input type="text" class="large-text"'
             . ' name="' . esc_attr($k) . '[' . esc_attr($field) . ']"'
             . ' value="' . esc_attr((string) ($s[$field] ?? '')) . '" />';
         if ($desc !== '') {
@@ -663,7 +662,7 @@ final class Secure_Guard_Settings_Page {
         echo '<tr><th>' . esc_html($label) . '</th><td>';
         // type="text" instead of type="url" — browsers reject valid URLs like
         // http://localhost:8080/ or custom-scheme URIs under strict url validation.
-        echo '<input type="text" class="regular-text"'
+        echo '<input type="text" class="large-text"'
             . ' name="' . esc_attr($k) . '[' . esc_attr($field) . ']"'
             . ' value="' . esc_attr((string) ($s[$field] ?? '')) . '" />';
         if ($desc !== '') {
@@ -687,7 +686,7 @@ final class Secure_Guard_Settings_Page {
                 '<code>' . esc_html($env_var_name) . '</code>'
             ) . '</p>';
         } else {
-            echo '<input type="text" class="regular-text"'
+            echo '<input type="text" class="large-text"'
                 . ' name="' . esc_attr($k) . '[' . esc_attr($field) . ']"'
                 . ' value="' . esc_attr((string) ($s[$field] ?? '')) . '" />';
             if ($desc !== '') {

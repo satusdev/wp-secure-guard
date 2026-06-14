@@ -195,6 +195,7 @@ final class Secure_Guard_Security_Assistant_Page {
         $this->render_metric(__('Recommendations', 'wp-secure-guard'), (string) count($recommendations), __('Actionable setup and safety items.', 'wp-secure-guard'), count($recommendations) > 0 ? 'warning' : 'ok');
         echo '</div>';
 
+        $this->render_operations_overview($settings, $lock_data);
         $this->render_preset_cards($current_preset, $saved_preset);
         $this->render_bedrock_hardening_status();
         $this->render_lockdown_panel($lock_data, $settings);
@@ -273,6 +274,47 @@ final class Secure_Guard_Security_Assistant_Page {
             echo ($index > 0 ? ', ' : '') . '<code>' . esc_html($env_var) . '</code>';
         }
         echo '.</p></div>';
+    }
+
+    private function render_operations_overview(array $settings, ?array $lock_data): void {
+        $checks = [
+            [
+                'label' => __('Safe', 'wp-secure-guard'),
+                'title' => __('Safe hardening', 'wp-secure-guard'),
+                'body' => __('Version hiding, endpoint blocks, headers, and app-path rules are safe defaults.', 'wp-secure-guard'),
+                'state' => !empty($settings['hide_wp_info']) ? 'allowed' : 'warning',
+            ],
+            [
+                'label' => __('Verified', 'wp-secure-guard'),
+                'title' => __('Bedrock app shield', 'wp-secure-guard'),
+                'body' => __('Use the shield panel below to verify /app logs, .env, package files, and unknown direct files.', 'wp-secure-guard'),
+                'state' => 'info',
+            ],
+            [
+                'label' => __('Guarded', 'wp-secure-guard'),
+                'title' => __('Risky actions', 'wp-secure-guard'),
+                'body' => __('Destructive cleanup, full repair, and broad updates should stay in Forge where previews and job logs are available.', 'wp-secure-guard'),
+                'state' => 'warning',
+            ],
+            [
+                'label' => $lock_data ? __('Active', 'wp-secure-guard') : __('Normal', 'wp-secure-guard'),
+                'title' => __('Incident mode', 'wp-secure-guard'),
+                'body' => $lock_data ? $this->format_lock_summary($lock_data) : __('Emergency lockdown is ready for high-risk traffic incidents.', 'wp-secure-guard'),
+                'state' => $lock_data ? 'blocked' : 'allowed',
+            ],
+        ];
+
+        echo '<h2 style="margin-top:24px;">' . esc_html__('Operations Overview', 'wp-secure-guard') . '</h2>';
+        echo '<div class="sg-ops-grid">';
+        foreach ($checks as $check) {
+            $pill_class = 'sg-pill--' . sanitize_html_class((string) $check['state']);
+            echo '<div class="sg-ops-card">';
+            echo '<span class="sg-pill ' . esc_attr($pill_class) . '">' . esc_html((string) $check['label']) . '</span>';
+            echo '<h3>' . esc_html((string) $check['title']) . '</h3>';
+            echo '<p class="description">' . esc_html((string) $check['body']) . '</p>';
+            echo '</div>';
+        }
+        echo '</div>';
     }
 
     private function render_preset_cards(string $current_preset, string $saved_preset): void {
@@ -369,10 +411,28 @@ final class Secure_Guard_Security_Assistant_Page {
 
     private function render_bedrock_hardening_status(): void {
         $results = Secure_Guard_WP_Hardening::test_exposure_status();
+        $protected_count = 0;
+        $exposed_count = 0;
+        foreach ($results as $result) {
+            $status = sanitize_key((string) ($result['status'] ?? 'unknown'));
+            if ($status === 'protected') {
+                $protected_count++;
+            } elseif ($status === 'exposed') {
+                $exposed_count++;
+            }
+        }
 
         echo '<h2 style="margin-top:24px;">' . esc_html__('Bedrock & App Path Shield', 'wp-secure-guard') . '</h2>';
         echo '<div class="card sg-lockdown-card sg-bedrock-shield">';
+        echo '<div class="sg-section-header">';
         echo '<p class="description">' . esc_html__('Checks direct access to WordPress and Bedrock app files that should be blocked before PHP handles the request.', 'wp-secure-guard') . '</p>';
+        echo '<div class="sg-section-header__badges">';
+        echo '<span class="sg-pill sg-pill--allowed">' . esc_html(sprintf(__('%d protected', 'wp-secure-guard'), $protected_count)) . '</span>';
+        if ($exposed_count > 0) {
+            echo '<span class="sg-pill sg-pill--blocked">' . esc_html(sprintf(__('%d exposed', 'wp-secure-guard'), $exposed_count)) . '</span>';
+        }
+        echo '</div>';
+        echo '</div>';
 
         if ($results === []) {
             echo '<p><span class="sg-pill sg-pill--warning">' . esc_html__('Unknown', 'wp-secure-guard') . '</span> ' . esc_html__('No exposure checks are available.', 'wp-secure-guard') . '</p>';
@@ -403,6 +463,7 @@ final class Secure_Guard_Security_Assistant_Page {
         echo '<input type="hidden" name="action" value="sg_refresh_hardening_rules" />';
         wp_nonce_field('sg_refresh_hardening_rules');
         submit_button(__('Refresh Hardening Rules', 'wp-secure-guard'), 'secondary', 'submit', false);
+        echo ' <a class="button" href="' . esc_url(admin_url('admin.php?page=secure-guard-assistant')) . '">' . esc_html__('Run Exposure Check Again', 'wp-secure-guard') . '</a>';
         echo '</form>';
         echo '</div>';
     }
