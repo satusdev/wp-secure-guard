@@ -100,6 +100,14 @@ final class Secure_Guard_Plugin {
     }
 
     public function register_hooks(): void {
+        if (Secure_Guard_Config::is_safe_mode()) {
+            $this->loader->action('init', [$this->security_maintenance, 'register_schedule'], 9, 0);
+            $this->loader->action('admin_menu', [$this->admin_menu, 'register_menu'], 10, 0);
+            $this->loader->action('admin_init', [$this->admin_menu, 'register_admin_actions'], 10, 0);
+            $this->loader->action('admin_enqueue_scripts', [$this->admin_menu, 'enqueue_admin_assets'], 10, 1);
+            $this->loader->action('init', [$this->site_health, 'register'], 10, 0);
+            return;
+        }
         $this->loader->action('init', [$this->traffic_firewall, 'handle_request'], 1, 0);
         $this->loader->action('parse_request', [$this->traffic_firewall, 'enforce_parse_request'], 1, 0);
         $this->loader->action('wp_loaded', [$this->traffic_firewall, 'enforce_wp_loaded'], 1, 0);

@@ -7,6 +7,7 @@ if (!defined('ABSPATH')) {
 final class Secure_Guard_Config {
     public const OPTION_KEY = 'secure_guard_settings';
     public const DB_VERSION_OPTION = 'secure_guard_db_version';
+    public const PLUGIN_VERSION_OPTION = 'secure_guard_plugin_version';
     public const DB_VERSION = '2.0.0';
 
     /**
@@ -42,6 +43,7 @@ final class Secure_Guard_Config {
         'jwt_secret'   => 'SECURE_GUARD_JWT_SECRET',
         'jwt_issuer'   => 'SECURE_GUARD_JWT_ISSUER',
         'jwt_audience' => 'SECURE_GUARD_JWT_AUDIENCE',
+        'safe_mode'    => 'SECURE_GUARD_SAFE_MODE',
     ];
 
     /**
@@ -132,6 +134,7 @@ final class Secure_Guard_Config {
             'reputation_throttle_score' => 20,
             'reputation_challenge_score' => 50,
             'reputation_block_score' => 100,
+            'reputation_block_minutes' => 60,
             'reputation_decay_per_day' => 10,
             'progressive_throttle_enabled' => 1,
             'lock_state_enabled' => 1,
@@ -177,6 +180,7 @@ final class Secure_Guard_Config {
         $settings['alert_on_token_expiry_days'] = max(0, (int) $settings['alert_on_token_expiry_days']);
         $settings['lockdown_velocity_threshold'] = max(1, (int) ($settings['lockdown_velocity_threshold'] ?? 500));
         $settings['reputation_decay_per_day'] = max(1, (int) ($settings['reputation_decay_per_day'] ?? 10));
+        $settings['reputation_block_minutes'] = max(1, (int) ($settings['reputation_block_minutes'] ?? 60));
         $settings['bind_jwt_to_ip'] = !empty($settings['bind_jwt_to_ip']) ? 1 : 0;
         $settings['bind_jwt_to_ua'] = !empty($settings['bind_jwt_to_ua']) ? 1 : 0;
 
@@ -290,6 +294,7 @@ final class Secure_Guard_Config {
             'reputation_throttle_score' => max(1, (int) ($input['reputation_throttle_score'] ?? $defaults['reputation_throttle_score'])),
             'reputation_challenge_score' => max(1, (int) ($input['reputation_challenge_score'] ?? $defaults['reputation_challenge_score'])),
             'reputation_block_score' => max(1, (int) ($input['reputation_block_score'] ?? $defaults['reputation_block_score'])),
+            'reputation_block_minutes' => max(1, (int) ($input['reputation_block_minutes'] ?? $defaults['reputation_block_minutes'])),
             'reputation_decay_per_day' => max(1, (int) ($input['reputation_decay_per_day'] ?? $defaults['reputation_decay_per_day'])),
             'progressive_throttle_enabled' => !empty($input['progressive_throttle_enabled']) ? 1 : 0,
             'lock_state_enabled' => !empty($input['lock_state_enabled']) ? 1 : 0,
@@ -378,6 +383,16 @@ final class Secure_Guard_Config {
 
     public static function get_content_dir(): string {
         return defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR : ABSPATH . 'wp-content';
+    }
+
+    public static function is_safe_mode(): bool {
+        if (defined('SECURE_GUARD_SAFE_MODE') && SECURE_GUARD_SAFE_MODE) return true;
+        $env = strtolower(self::get_env_value('safe_mode'));
+        if (in_array($env, ['1', 'true', 'yes', 'on'], true)) return true;
+        $until = (int) get_option('secure_guard_safe_mode_until', 0);
+        if ($until > time()) return true;
+        if ($until > 0) delete_option('secure_guard_safe_mode_until');
+        return false;
     }
 
     public static function get_mu_plugin_dir(): string {

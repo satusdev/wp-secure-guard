@@ -583,6 +583,11 @@ final class Secure_Guard_Settings_Page {
                     __('Points removed from every reputation score each day so temporary behavior does not create a permanent ban.', 'wp-secure-guard'),
                     1
                 );
+                $this->row_number($k, 'reputation_block_minutes', $s,
+                    __('Reputation Block Duration', 'wp-secure-guard'),
+                    __('Minutes before a reputation hard block expires automatically.', 'wp-secure-guard'),
+                    1
+                );
                 $this->row_checkbox($k, 'bot_fingerprint_enabled', $s,
                     __('Behavioral Bot Fingerprinting', 'wp-secure-guard'),
                     __('Analyze headers and patterns to detect headless browsers and scrapers.', 'wp-secure-guard')

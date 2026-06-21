@@ -31,6 +31,15 @@ final class Secure_Guard_Reputation_Engine {
 
         $new_score = $this->repository->upsert_reputation('rep:' . $ip, $points);
 
+        $block_score = (int) ($this->settings['reputation_block_score'] ?? 100);
+        if ($points > 0 && $new_score >= $block_score) {
+            $minutes = max(1, (int) ($this->settings['reputation_block_minutes'] ?? 60));
+            $now = time();
+            $this->repository->upsert('ip-block:' . $ip, gmdate('Y-m-d H:i:s', $now), 1, gmdate('Y-m-d H:i:s', $now + $minutes * MINUTE_IN_SECONDS));
+            set_transient('sg_iblk_' . substr(md5('ip-block:' . $ip), 0, 16), 1, $minutes * MINUTE_IN_SECONDS);
+            $this->repository->set_reputation('rep:' . $ip, (int) ($this->settings['reputation_challenge_score'] ?? 50));
+        }
+
         if ($points > 0) {
             $this->track_attack_velocity($points, $reason);
         }

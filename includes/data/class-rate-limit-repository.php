@@ -149,6 +149,11 @@ final class Secure_Guard_Rate_Limit_Repository {
         }
     }
 
+    public function set_reputation(string $subject, int $score): void {
+        $this->upsert($subject, gmdate('Y-m-d H:i:s'), 0, null);
+        $this->db->update($this->table, ['reputation_score' => max(0, $score)], ['subject' => $subject], ['%d'], ['%s']);
+    }
+
     public function get_reputation(string $subject): int {
         $query = $this->db->prepare("SELECT reputation_score FROM {$this->table} WHERE subject = %s LIMIT 1", $subject);
         return (int) $this->db->get_var($query);

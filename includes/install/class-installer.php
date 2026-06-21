@@ -114,6 +114,7 @@ final class Secure_Guard_Installer {
             update_option(Secure_Guard_Config::OPTION_KEY, Secure_Guard_Config::defaults(), false);
         }
         update_option(Secure_Guard_Config::DB_VERSION_OPTION, Secure_Guard_Config::DB_VERSION, false);
+        update_option(Secure_Guard_Config::PLUGIN_VERSION_OPTION, SECURE_GUARD_VERSION, false);
 
         self::deploy_watchdog();
         Secure_Guard_WP_Hardening::write_htaccess_protection();
@@ -142,6 +143,9 @@ if (!defined('ABSPATH')) exit;
 // Bypass for WP-CLI and CLI environments
 if (defined('WP_CLI') && WP_CLI) return;
 if (php_sapi_name() === 'cli') return;
+if ((defined('SECURE_GUARD_SAFE_MODE') && SECURE_GUARD_SAFE_MODE) || in_array(strtolower((string) getenv('SECURE_GUARD_SAFE_MODE')), ['1', 'true', 'yes', 'on'], true)) return;
+\$watchdog_safe_until = (int) get_option('secure_guard_safe_mode_until', 0);
+if (\$watchdog_safe_until > time()) return;
 
 // 1. Lockdown Check (High Performance)
 
@@ -197,17 +201,15 @@ if (file_exists('{$plugin_path}includes/class-config.php')) {
              die('Forbidden by Secure Guard (IP Blocked)');
         }
 
-        // B. Reputation Score Block (Check DB directly for efficiency)
+        // B. Expiring database-backed IP block.
         global \$wpdb;
-        \$rep_score = (int) \$wpdb->get_var(\$wpdb->prepare(
-            \"SELECT reputation_score FROM {\$wpdb->prefix}sg_rate_limits WHERE subject = %s\",
-            'rep:' . \$watchdog_ip
+        \$blocked_until = \$wpdb->get_var(\$wpdb->prepare(
+            \"SELECT blocked_until FROM {\$wpdb->prefix}sg_rate_limits WHERE subject = %s\",
+            'ip-block:' . \$watchdog_ip
         ));
-
-        \$block_threshold = (int) (\$watchdog_settings['reputation_block_score'] ?? 100);
-        if (\$rep_score >= \$block_threshold) {
+        if (\$blocked_until && strtotime((string) \$blocked_until) > time()) {
             status_header(403);
-            die('Forbidden by Secure Guard (High Risk Reputation)');
+            die('Forbidden by Secure Guard (Temporary IP Block)');
         }
     }
 }

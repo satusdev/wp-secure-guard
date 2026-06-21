@@ -53,6 +53,7 @@ require_once SECURE_GUARD_DIR . 'includes/security/class-alert-manager.php';
 require_once SECURE_GUARD_DIR . 'includes/security/class-reputation-engine.php';
 require_once SECURE_GUARD_DIR . 'includes/security/class-security-events.php';
 require_once SECURE_GUARD_DIR . 'includes/security/class-site-health.php';
+require_once SECURE_GUARD_DIR . 'includes/security/class-recovery-cli.php';
 require_once SECURE_GUARD_DIR . 'admin/class-admin-menu.php';
 require_once SECURE_GUARD_DIR . 'admin/class-security-assistant-page.php';
 require_once SECURE_GUARD_DIR . 'admin/class-dashboard-page.php';
@@ -71,12 +72,14 @@ add_action(
     10,
     2
 );
+Secure_Guard_Recovery_CLI::register();
 
 function secure_guard_bootstrap(): Secure_Guard_Plugin {
     static $plugin = null;
 
     $db_version = get_option(Secure_Guard_Config::DB_VERSION_OPTION, '0.0.0');
-    if ((string) $db_version !== Secure_Guard_Config::DB_VERSION) {
+    $plugin_version = get_option(Secure_Guard_Config::PLUGIN_VERSION_OPTION, '0.0.0');
+    if ((string) $db_version !== Secure_Guard_Config::DB_VERSION || (string) $plugin_version !== SECURE_GUARD_VERSION) {
         Secure_Guard_Installer::activate();
     }
 

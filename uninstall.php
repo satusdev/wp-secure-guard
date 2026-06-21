@@ -8,6 +8,8 @@ global $wpdb;
 
 delete_option('secure_guard_settings');
 delete_option('secure_guard_db_version');
+delete_option('secure_guard_plugin_version');
+delete_option('secure_guard_safe_mode_until');
 delete_option('secure_guard_integrity_baseline');
 delete_option('secure_guard_integrity_last_scan');
 
