@@ -65,6 +65,13 @@ require_once SECURE_GUARD_DIR . 'admin/class-blocked-ips-page.php';
 require_once SECURE_GUARD_DIR . 'admin/class-docs-page.php';
 require_once SECURE_GUARD_DIR . 'includes/class-plugin.php';
 
+add_action(
+    'update_option_' . Secure_Guard_Config::OPTION_KEY,
+    [Secure_Guard_Config::class, 'reconcile_trusted_ips'],
+    10,
+    2
+);
+
 function secure_guard_bootstrap(): Secure_Guard_Plugin {
     static $plugin = null;
 

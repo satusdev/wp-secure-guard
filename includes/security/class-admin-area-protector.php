@@ -27,8 +27,9 @@ final class Secure_Guard_Admin_Area_Protector {
         }
 
         $ip = $this->ip_whitelist->get_request_ip();
+        $trusted_ip = $this->ip_whitelist->is_allowed($ip);
 
-        if ($this->is_globally_blocked($ip)) {
+        if (!$trusted_ip && $this->is_globally_blocked($ip)) {
             $this->deny('Blocked IP tried admin access', $ip, 403);
         }
 
@@ -37,7 +38,7 @@ final class Secure_Guard_Admin_Area_Protector {
         }
 
         $admin_whitelist = trim((string) ($this->settings['admin_ip_whitelist'] ?? ''));
-        if ($admin_whitelist !== '' && !$this->ip_is_allowed_by_custom_list($ip, $admin_whitelist)) {
+        if (!$trusted_ip && $admin_whitelist !== '' && !$this->ip_is_allowed_by_custom_list($ip, $admin_whitelist)) {
             $this->deny('Admin area IP not allowed', $ip, 403);
         }
 

@@ -86,17 +86,17 @@ final class Secure_Guard_Config {
             'login_medium_threshold' => 10,
             'login_hard_block_threshold' => 20,
             'bot_rate_limit_enabled' => 1,
-            'bot_rate_limit_per_minute' => 60,
+            'bot_rate_limit_per_minute' => 120,
             'bot_block_minutes' => 15,
-            'scan_404_threshold' => 20,
+            'scan_404_threshold' => 30,
             'block_public_wp_cron' => 1,
             'hide_wp_info' => 1,
             'admin_area_protection_enabled' => 1,
             'admin_ip_whitelist' => '',
             'trusted_proxy_ips' => '',
             'file_integrity_enabled' => 1,
-            'ip_whitelist' => "49.13.65.81\n",
-            'rate_limit_per_minute' => 100,
+            'ip_whitelist' => '',
+            'rate_limit_per_minute' => 200,
             'allowed_roles' => ['administrator'],
             'jwt_secret' => '',
             'jwt_issuer' => $jwt_url,
@@ -132,12 +132,13 @@ final class Secure_Guard_Config {
             'reputation_throttle_score' => 20,
             'reputation_challenge_score' => 50,
             'reputation_block_score' => 100,
+            'reputation_decay_per_day' => 10,
             'progressive_throttle_enabled' => 1,
             'lock_state_enabled' => 1,
             'lockdown_velocity_threshold' => 500,
             'self_protection_enabled' => 1,
             'bot_fingerprint_enabled' => 1,
-            'burst_limit' => 10,
+            'burst_limit' => 30,
             'burst_window_seconds' => 2,
             'endpoint_sensitivity_enabled' => 1,
             'mu_plugin_path' => WP_CONTENT_DIR . '/mu-plugins',
@@ -175,6 +176,7 @@ final class Secure_Guard_Config {
         $settings['jwt_audience'] = trim((string) $settings['jwt_audience']) !== '' ? (string) $settings['jwt_audience'] : home_url('/');
         $settings['alert_on_token_expiry_days'] = max(0, (int) $settings['alert_on_token_expiry_days']);
         $settings['lockdown_velocity_threshold'] = max(1, (int) ($settings['lockdown_velocity_threshold'] ?? 500));
+        $settings['reputation_decay_per_day'] = max(1, (int) ($settings['reputation_decay_per_day'] ?? 10));
         $settings['bind_jwt_to_ip'] = !empty($settings['bind_jwt_to_ip']) ? 1 : 0;
         $settings['bind_jwt_to_ua'] = !empty($settings['bind_jwt_to_ua']) ? 1 : 0;
 
@@ -189,6 +191,19 @@ final class Secure_Guard_Config {
             $stored['csp'] = $defaults['csp'];
             update_option(self::OPTION_KEY, $stored, false);
             $settings['csp'] = $stored['csp'];
+        }
+
+        // Remove the legacy maintainer IP that was accidentally shipped as a
+        // default. All other administrator and Forge-managed entries stay intact.
+        if (isset($stored['ip_whitelist'])) {
+            $entries = preg_split('/\r\n|\r|\n/', (string) $stored['ip_whitelist']) ?: [];
+            $entries = array_values(array_filter(array_map('trim', $entries), static fn(string $entry): bool => $entry !== '' && $entry !== '49.13.65.81'));
+            $cleaned = implode("\n", $entries);
+            if ($cleaned !== trim((string) $stored['ip_whitelist'])) {
+                $stored['ip_whitelist'] = $cleaned;
+                update_option(self::OPTION_KEY, $stored, false);
+                $settings['ip_whitelist'] = $cleaned;
+            }
         }
 
         // Apply environment variable overrides. Env vars take precedence over the database-stored
@@ -275,6 +290,7 @@ final class Secure_Guard_Config {
             'reputation_throttle_score' => max(1, (int) ($input['reputation_throttle_score'] ?? $defaults['reputation_throttle_score'])),
             'reputation_challenge_score' => max(1, (int) ($input['reputation_challenge_score'] ?? $defaults['reputation_challenge_score'])),
             'reputation_block_score' => max(1, (int) ($input['reputation_block_score'] ?? $defaults['reputation_block_score'])),
+            'reputation_decay_per_day' => max(1, (int) ($input['reputation_decay_per_day'] ?? $defaults['reputation_decay_per_day'])),
             'progressive_throttle_enabled' => !empty($input['progressive_throttle_enabled']) ? 1 : 0,
             'lock_state_enabled' => !empty($input['lock_state_enabled']) ? 1 : 0,
             'lockdown_velocity_threshold' => max(1, (int) ($input['lockdown_velocity_threshold'] ?? $defaults['lockdown_velocity_threshold'])),
@@ -318,6 +334,46 @@ final class Secure_Guard_Config {
         }
 
         return $settings;
+    }
+
+    /**
+     * Remove stale security state for every IP covered by the trusted list.
+     * Authentication is unaffected; this only prevents an old ban from taking
+     * precedence after an administrator explicitly trusts an address or CIDR.
+     */
+    public static function reconcile_trusted_ips($old_value, $new_value): void {
+        if (!is_array($new_value) || !class_exists('Secure_Guard_IP_Whitelist')) {
+            return;
+        }
+
+        $raw_list = trim((string) ($new_value['ip_whitelist'] ?? ''));
+        if ($raw_list === '') {
+            return;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'sg_rate_limits';
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+        $subjects = $wpdb->get_col(
+            "SELECT subject FROM {$table} WHERE subject LIKE 'ip-block:%' OR subject LIKE 'login-block:%' OR subject LIKE 'rep:%'"
+        ) ?: [];
+        $whitelist = new Secure_Guard_IP_Whitelist($new_value);
+
+        foreach ($subjects as $subject) {
+            $separator = strpos((string) $subject, ':');
+            $ip = $separator === false ? '' : substr((string) $subject, $separator + 1);
+            if ($ip === '' || !$whitelist->check_list($ip, $raw_list)) {
+                continue;
+            }
+
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+            $wpdb->delete($table, ['subject' => (string) $subject], ['%s']);
+            delete_transient('sg_iblk_' . substr(md5('ip-block:' . $ip), 0, 16));
+            delete_transient('secure_guard_login_fails_' . md5($ip));
+            delete_transient('secure_guard_404_scans_' . md5($ip));
+        }
+
+        delete_transient('sg_dashboard_stats');
     }
 
     public static function get_content_dir(): string {

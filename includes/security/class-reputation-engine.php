@@ -69,7 +69,7 @@ final class Secure_Guard_Reputation_Engine {
     }
 
     public function decay(): void {
-        // Decay score by 10% or at least 1 point
-        $this->repository->decay_reputation(1);
+        $amount = max(1, (int) ($this->settings['reputation_decay_per_day'] ?? 10));
+        $this->repository->decay_reputation($amount);
     }
 }

@@ -15,7 +15,7 @@ final class Secure_Guard_Rate_Limit {
 
     public function allow(string $subject, ?int $token_limit = null): bool {
         $limit = $token_limit && $token_limit > 0 ? $token_limit : (int) ($this->settings['rate_limit_per_minute'] ?? 100);
-        $burst_limit = (int) ($this->settings['burst_limit'] ?? 10);
+        $burst_limit = (int) ($this->settings['burst_limit'] ?? 30);
         $burst_window = (int) ($this->settings['burst_window_seconds'] ?? 2);
 
         return $this->allow_sliding($subject, $limit, 60, $burst_limit, $burst_window);
@@ -69,7 +69,7 @@ final class Secure_Guard_Rate_Limit {
      */
     public function allow_with_policy(string $subject, int $limit, int $window_seconds, int $block_seconds): bool {
         // For simple traffic firewall checks, we use sliding window with default burst.
-        $burst_limit = (int) ($this->settings['burst_limit'] ?? 10);
+        $burst_limit = (int) ($this->settings['burst_limit'] ?? 30);
         $burst_window = (int) ($this->settings['burst_window_seconds'] ?? 2);
         
         return $this->allow_sliding($subject, $limit, $window_seconds, $burst_limit, $burst_window);

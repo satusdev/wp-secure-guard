@@ -578,6 +578,11 @@ final class Secure_Guard_Settings_Page {
                     __('Score at which an IP enters the Challenged tier.', 'wp-secure-guard'),
                     1
                 );
+                $this->row_number($k, 'reputation_decay_per_day', $s,
+                    __('Daily Reputation Recovery', 'wp-secure-guard'),
+                    __('Points removed from every reputation score each day so temporary behavior does not create a permanent ban.', 'wp-secure-guard'),
+                    1
+                );
                 $this->row_checkbox($k, 'bot_fingerprint_enabled', $s,
                     __('Behavioral Bot Fingerprinting', 'wp-secure-guard'),
                     __('Analyze headers and patterns to detect headless browsers and scrapers.', 'wp-secure-guard')

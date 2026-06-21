@@ -64,7 +64,7 @@ final class Secure_Guard_Login_Protection {
         }
 
         // Feed into reputation engine
-        $this->reputation->add_score($ip, 20, 'Failed login attempt');
+        $this->reputation->add_score($ip, 10, 'Failed login attempt');
 
         $count_key = 'secure_guard_login_fails_' . md5($ip);
         $fails = (int) get_transient($count_key);

@@ -15,25 +15,33 @@ final class Secure_Guard_IP_Whitelist {
         $remote_addr = sanitize_text_field((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
         $candidates = [];
 
-        if ($remote_addr !== '') {
-            $candidates[] = $remote_addr;
-        }
-
         if ($this->is_trusted_proxy($remote_addr)) {
             if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
                 $candidates[] = (string) $_SERVER['HTTP_CF_CONNECTING_IP'];
             }
 
             if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-                $forwarded = explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']);
+                // Walk from the proxy nearest WordPress toward the client.
+                // This prevents a caller-prepended XFF value from winning.
+                $forwarded = array_reverse(explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']));
                 foreach ($forwarded as $ip) {
-                    $candidates[] = trim($ip);
+                    $ip = trim($ip);
+                    if (filter_var($ip, FILTER_VALIDATE_IP) && !$this->is_trusted_proxy($ip)) {
+                        $candidates[] = $ip;
+                        break;
+                    }
                 }
             }
 
             if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
                 $candidates[] = (string) $_SERVER['HTTP_X_REAL_IP'];
             }
+        }
+
+        // Fall back to the socket peer. For trusted proxies the verified
+        // forwarding headers above must take precedence over the proxy address.
+        if ($remote_addr !== '') {
+            $candidates[] = $remote_addr;
         }
 
         foreach ($candidates as $candidate) {

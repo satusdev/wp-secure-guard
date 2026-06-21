@@ -54,8 +54,11 @@ final class Secure_Guard_REST_Guard {
             return $result;
         }
 
-        // Reputation check - Block if IP is in BLOCKED tier
-        if ($this->reputation_engine->get_tier($ip) === Secure_Guard_Reputation_Engine::TIER_BLOCKED) {
+        $trusted_ip = $this->ip_whitelist->is_allowed($ip);
+
+        // Trusted management IPs never inherit stale reputation bans. They
+        // still need a valid browser session or API token below.
+        if (!$trusted_ip && $this->reputation_engine->get_tier($ip) === Secure_Guard_Reputation_Engine::TIER_BLOCKED) {
             $this->logs->log($route, $method, 'BLOCKED', 'IP blocked by reputation', ['ip' => $ip]);
             return new WP_Error('secure_guard_reputation_blocked', __('Access denied by security engine.', 'wp-secure-guard'), ['status' => 403]);
         }
@@ -72,21 +75,25 @@ final class Secure_Guard_REST_Guard {
 
         $token_row = $this->token_manager->validate_token($token);
         if (!$token_row) {
-            $this->reputation_engine->add_score($ip, 5, 'Invalid JWT attempt');
+            if (!$trusted_ip) {
+                $this->reputation_engine->add_score($ip, 5, 'Invalid JWT attempt');
+            }
             $this->logs->log($route, $method, 'BLOCKED', 'Missing or invalid JWT token', ['ip' => $ip]);
             return new WP_Error('secure_guard_invalid_token', __('REST API requires a valid JWT token.', 'wp-secure-guard'), ['status' => 403]);
         }
 
         // Sensitivity scoring and reputation feed
         $weight = $this->sensitivity->get_weight($route);
-        if ($weight > 1) {
+        if (!$trusted_ip && $weight > 1) {
             $this->reputation_engine->add_score($ip, (int) ($weight / 2), 'Sensitive endpoint hit');
         }
 
         if ($this->endpoint_blocker->should_block_sensitive_endpoints() && $this->endpoint_blocker->is_sensitive_route($route)) {
             $is_admin_scope = in_array('full_api_access', $this->token_manager->get_token_scopes($token_row), true);
             if (!$is_admin_scope) {
-                $this->reputation_engine->add_score($ip, 10, 'Sensitive endpoint unauthorized access attempt');
+                if (!$trusted_ip) {
+                    $this->reputation_engine->add_score($ip, 10, 'Sensitive endpoint unauthorized access attempt');
+                }
                 $this->logs->log($route, $method, 'BLOCKED', 'Sensitive endpoint blocked for JWT scope', ['token_id' => $token_row['id'] ?? 0, 'ip' => $ip]);
                 return new WP_Error('secure_guard_sensitive_blocked', __('Endpoint blocked.', 'wp-secure-guard'), ['status' => 403]);
             }
@@ -113,9 +120,9 @@ final class Secure_Guard_REST_Guard {
         // Adaptive Scaling: Reduce limit based on reputation tier
         $rep_tier = $this->reputation_engine->get_tier($ip);
         if ($rep_tier === Secure_Guard_Reputation_Engine::TIER_CHALLENGED) {
-            $scaled_limit = max(1, (int) ($scaled_limit * 0.5));
-        } elseif ($rep_tier === Secure_Guard_Reputation_Engine::TIER_THROTTLED) {
             $scaled_limit = max(1, (int) ($scaled_limit * 0.2));
+        } elseif ($rep_tier === Secure_Guard_Reputation_Engine::TIER_THROTTLED) {
+            $scaled_limit = max(1, (int) ($scaled_limit * 0.5));
         }
 
         $subjects = [
@@ -125,7 +132,7 @@ final class Secure_Guard_REST_Guard {
             'ip_ua:' . md5($ip . ':' . $ua),        // Dimension 4: IP + UA
         ];
 
-        foreach ($subjects as $subject) {
+        foreach ($trusted_ip ? [] : $subjects as $subject) {
             if (!$this->rate_limit->allow($subject, $scaled_limit)) {
                 $this->reputation_engine->add_score($ip, 5, 'Rate limit exceeded (' . $subject . ')');
                 $this->logs->log($route, $method, 'BLOCKED', 'Rate limit exceeded: ' . $subject, ['token_id' => $token_id, 'ip' => $ip]);
@@ -133,8 +140,11 @@ final class Secure_Guard_REST_Guard {
             }
         }
 
-        // Logged-in user reputation bonus
-        $this->reputation_engine->add_score($ip, 1, 'Normal request');
+        // Valid traffic gradually repairs reputation instead of making every
+        // successful API request look more suspicious.
+        if (!$trusted_ip) {
+            $this->reputation_engine->add_score($ip, -1, 'Valid API request');
+        }
 
         // touch_last_used is already handled inside validate_token().
         // Only log ALLOWED events when explicitly enabled (reduces DB write pressure).
@@ -147,8 +157,9 @@ final class Secure_Guard_REST_Guard {
 
     public function pre_dispatch($response, WP_REST_Server $server, WP_REST_Request $request) {
         $route = (string) $request->get_route();
+        $ip = $this->ip_whitelist->get_request_ip();
         
-        if ($this->lock_state->is_locked() && !$this->lock_state->is_route_allowed_in_lockdown($route)) {
+        if (!$this->ip_whitelist->is_allowed($ip) && $this->lock_state->is_locked() && !$this->lock_state->is_route_allowed_in_lockdown($route)) {
             return new WP_Error('secure_guard_locked', __('System is in emergency lockdown mode.', 'wp-secure-guard'), ['status' => 503]);
         }
 
@@ -169,7 +180,8 @@ final class Secure_Guard_REST_Guard {
 
     public function final_gate($response, WP_REST_Server $server, WP_REST_Request $request) {
         // Final gatekeeper logic - could re-verify auth or state
-        if ($this->lock_state->is_locked() && !is_user_logged_in()) {
+        $ip = $this->ip_whitelist->get_request_ip();
+        if (!$this->ip_whitelist->is_allowed($ip) && $this->lock_state->is_locked() && !is_user_logged_in()) {
              return new WP_Error('secure_guard_locked_final', __('Access denied.', 'wp-secure-guard'), ['status' => 403]);
         }
         return $response;

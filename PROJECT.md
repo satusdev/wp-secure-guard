@@ -194,7 +194,7 @@ protections.
   - User enumeration blocked.
   - JWT-only authentication with short TTL + denylist revocation support.
   - Balanced CSP policy enabled by default.
-  - Rate limit = 100 requests per minute.
+  - Rate limit = 200 requests per minute.
   - Automatic lockdown velocity threshold = 500 reputation points per short
     velocity window.
 

@@ -152,6 +152,9 @@ final class Secure_Guard_Traffic_Firewall {
     public function enforce_wp_loaded(): void {
         if ($this->lock_state->is_locked() && !is_admin() && !is_user_logged_in()) {
              $ip = $this->ip_whitelist->get_request_ip();
+             if ($this->ip_whitelist->is_allowed($ip)) {
+                 return;
+             }
              $this->deny_request('Emergency lockdown enforcement', 503, $ip);
         }
     }
