@@ -197,19 +197,6 @@ final class Secure_Guard_Config {
             $settings['csp'] = $stored['csp'];
         }
 
-        // Remove the legacy maintainer IP that was accidentally shipped as a
-        // default. All other administrator and Forge-managed entries stay intact.
-        if (isset($stored['ip_whitelist'])) {
-            $entries = preg_split('/\r\n|\r|\n/', (string) $stored['ip_whitelist']) ?: [];
-            $entries = array_values(array_filter(array_map('trim', $entries), static fn(string $entry): bool => $entry !== '' && $entry !== '49.13.65.81'));
-            $cleaned = implode("\n", $entries);
-            if ($cleaned !== trim((string) $stored['ip_whitelist'])) {
-                $stored['ip_whitelist'] = $cleaned;
-                update_option(self::OPTION_KEY, $stored, false);
-                $settings['ip_whitelist'] = $cleaned;
-            }
-        }
-
         // Apply environment variable overrides. Env vars take precedence over the database-stored
         // settings but yield to PHP constants (handled per-setting where applicable).
         // Compatible with Bedrock phpdotenv, Apache SetEnv, and system environment variables.
