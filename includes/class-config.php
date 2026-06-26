@@ -207,6 +207,15 @@ final class Secure_Guard_Config {
             }
         }
 
+        // Override stale mu_plugin_path (e.g. from staging clones) if it's outside the current site's content directory
+        if (isset($settings['mu_plugin_path'])) {
+            $normalized_mu_path = str_replace('\\', '/', $settings['mu_plugin_path']);
+            $normalized_content_dir = str_replace('\\', '/', self::get_content_dir());
+            if (!str_starts_with($normalized_mu_path, $normalized_content_dir)) {
+                $settings['mu_plugin_path'] = self::get_mu_plugin_dir();
+            }
+        }
+
         return $settings;
     }
 

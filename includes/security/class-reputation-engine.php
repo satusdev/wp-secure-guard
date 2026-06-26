@@ -41,13 +41,13 @@ final class Secure_Guard_Reputation_Engine {
         }
 
         if ($points > 0) {
-            $this->track_attack_velocity($points, $reason);
+            $this->track_attack_velocity($ip, $points, $reason);
         }
     }
 
-    private function track_attack_velocity(int $points, string $reason): void {
+    private function track_attack_velocity(string $ip, int $points, string $reason): void {
         if ($this->lock_state === null || !$this->lock_state->is_locked()) {
-            $key = 'sg_attack_velocity';
+            $key = 'sg_attack_velocity_' . md5($ip);
             $velocity = (int) get_transient($key);
             $velocity += $points;
             set_transient($key, $velocity, 30); // 30 second window

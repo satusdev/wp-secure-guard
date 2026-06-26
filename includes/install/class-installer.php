@@ -129,7 +129,6 @@ final class Secure_Guard_Installer {
         }
 
         $watchdog_file = $mu_path . '/secure-guard-watchdog.php';
-        $plugin_path = SECURE_GUARD_DIR;
 
         $content = "<?php
 /**
@@ -184,32 +183,35 @@ if (\$watchdog_lock_state) {
 // if (defined('WP_ADMIN')) { ... }
 
 // 3. Minimal Enforcement Engine
-if (file_exists('{$plugin_path}includes/class-config.php')) {
-    require_once '{$plugin_path}includes/class-config.php';
-    require_once '{$plugin_path}includes/security/class-ip-whitelist.php';
-    require_once '{$plugin_path}includes/data/class-rate-limit-repository.php';
+if (defined('WP_PLUGIN_DIR')) {
+    \$plugin_path = rtrim(WP_PLUGIN_DIR, '/\\\\') . '/wp-secure-guard/';
+    if (file_exists(\$plugin_path . 'includes/class-config.php')) {
+        require_once \$plugin_path . 'includes/class-config.php';
+        require_once \$plugin_path . 'includes/security/class-ip-whitelist.php';
+        require_once \$plugin_path . 'includes/data/class-rate-limit-repository.php';
 
-    \$watchdog_settings = Secure_Guard_Config::get_settings();
-    \$watchdog_whitelist = new Secure_Guard_IP_Whitelist(\$watchdog_settings);
-    \$watchdog_ip = \$watchdog_whitelist->get_request_ip();
-    
-    if (!\$watchdog_whitelist->is_allowed(\$watchdog_ip)) {
-        // A. Hard Transient Block
-        \$watchdog_block_key = 'sg_iblk_' . substr(md5('ip-block:' . \$watchdog_ip), 0, 16);
-        if (get_transient(\$watchdog_block_key)) {
-             status_header(403);
-             die('Forbidden by Secure Guard (IP Blocked)');
-        }
+        \$watchdog_settings = Secure_Guard_Config::get_settings();
+        \$watchdog_whitelist = new Secure_Guard_IP_Whitelist(\$watchdog_settings);
+        \$watchdog_ip = \$watchdog_whitelist->get_request_ip();
+        
+        if (!\$watchdog_whitelist->is_allowed(\$watchdog_ip)) {
+            // A. Hard Transient Block
+            \$watchdog_block_key = 'sg_iblk_' . substr(md5('ip-block:' . \$watchdog_ip), 0, 16);
+            if (get_transient(\$watchdog_block_key)) {
+                 status_header(403);
+                 die('Forbidden by Secure Guard (IP Blocked)');
+            }
 
-        // B. Expiring database-backed IP block.
-        global \$wpdb;
-        \$blocked_until = \$wpdb->get_var(\$wpdb->prepare(
-            \"SELECT blocked_until FROM {\$wpdb->prefix}sg_rate_limits WHERE subject = %s\",
-            'ip-block:' . \$watchdog_ip
-        ));
-        if (\$blocked_until && strtotime((string) \$blocked_until) > time()) {
-            status_header(403);
-            die('Forbidden by Secure Guard (Temporary IP Block)');
+            // B. Expiring database-backed IP block.
+            global \$wpdb;
+            \$blocked_until = \$wpdb->get_var(\$wpdb->prepare(
+                \"SELECT blocked_until FROM {\$wpdb->prefix}sg_rate_limits WHERE subject = %s\",
+                'ip-block:' . \$watchdog_ip
+            ));
+            if (\$blocked_until && strtotime((string) \$blocked_until) > time()) {
+                status_header(403);
+                die('Forbidden by Secure Guard (Temporary IP Block)');
+            }
         }
     }
 }

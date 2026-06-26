@@ -177,6 +177,22 @@ final class Secure_Guard_Security_Assistant_Page {
         $blocked_ips = $this->limits->count_active_ip_blocks();
         $failed_logins = $this->logs->count_by_reason('Failed login');
         $active_tokens = $this->tokens->count_active();
+
+        $exposure_results = get_transient('sg_exposure_results');
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        if (isset($_GET['run_exposure_test'])) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+            if (current_user_can('manage_options') && isset($_GET['_wpnonce']) && wp_verify_nonce(wp_unslash($_GET['_wpnonce']), 'sg_assistant_exposure_test')) {
+                $exposure_results = Secure_Guard_WP_Hardening::test_exposure_status();
+                set_transient('sg_exposure_results', $exposure_results, HOUR_IN_SECONDS);
+            }
+        }
+        if (!is_array($exposure_results)) {
+            $exposure_results = Secure_Guard_WP_Hardening::test_exposure_status();
+            set_transient('sg_exposure_results', $exposure_results, HOUR_IN_SECONDS);
+        }
+        $scan_url = wp_nonce_url(add_query_arg('run_exposure_test', '1', admin_url('admin.php?page=secure-guard-assistant')), 'sg_assistant_exposure_test');
+
         $recommendations = $this->build_recommendations($settings, $blocked_ips, $active_tokens, $lock_data);
 
         echo '<div class="wrap secure-guard-ui">';
@@ -197,7 +213,7 @@ final class Secure_Guard_Security_Assistant_Page {
 
         $this->render_operations_overview($settings, $lock_data);
         $this->render_preset_cards($current_preset, $saved_preset);
-        $this->render_bedrock_hardening_status();
+        $this->render_bedrock_hardening_status($exposure_results, $scan_url);
         $this->render_lockdown_panel($lock_data, $settings);
         $this->render_recommendations($recommendations);
 
@@ -409,8 +425,7 @@ final class Secure_Guard_Security_Assistant_Page {
         echo '</div>';
     }
 
-    private function render_bedrock_hardening_status(): void {
-        $results = Secure_Guard_WP_Hardening::test_exposure_status();
+    private function render_bedrock_hardening_status(array $results, string $scan_url): void {
         $protected_count = 0;
         $exposed_count = 0;
         foreach ($results as $result) {
@@ -441,10 +456,13 @@ final class Secure_Guard_Security_Assistant_Page {
             foreach ($results as $result) {
                 $status = sanitize_key((string) ($result['status'] ?? 'unknown'));
                 $pill_class = 'sg-pill--warning';
+                $status_text = __('Unreachable', 'wp-secure-guard');
                 if ($status === 'protected') {
                     $pill_class = 'sg-pill--allowed';
+                    $status_text = __('Protected', 'wp-secure-guard');
                 } elseif ($status === 'exposed') {
                     $pill_class = 'sg-pill--blocked';
+                    $status_text = __('Exposed', 'wp-secure-guard');
                 }
 
                 echo '<div class="sg-exposure-row">';
@@ -453,7 +471,7 @@ final class Secure_Guard_Security_Assistant_Page {
                 echo '<code>' . esc_html((string) ($result['path'] ?? '')) . '</code>';
                 echo '<p class="description">' . esc_html((string) ($result['msg'] ?? '')) . '</p>';
                 echo '</div>';
-                echo '<span class="sg-pill ' . esc_attr($pill_class) . '">' . esc_html($status) . '</span>';
+                echo '<span class="sg-pill ' . esc_attr($pill_class) . '">' . esc_html($status_text) . '</span>';
                 echo '</div>';
             }
             echo '</div>';
@@ -463,7 +481,7 @@ final class Secure_Guard_Security_Assistant_Page {
         echo '<input type="hidden" name="action" value="sg_refresh_hardening_rules" />';
         wp_nonce_field('sg_refresh_hardening_rules');
         submit_button(__('Refresh Hardening Rules', 'wp-secure-guard'), 'secondary', 'submit', false);
-        echo ' <a class="button" href="' . esc_url(admin_url('admin.php?page=secure-guard-assistant')) . '">' . esc_html__('Run Exposure Check Again', 'wp-secure-guard') . '</a>';
+        echo ' <a class="button" href="' . esc_url($scan_url) . '">' . esc_html__('Run Exposure Check Again', 'wp-secure-guard') . '</a>';
         echo '</form>';
         echo '</div>';
     }

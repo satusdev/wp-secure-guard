@@ -60,6 +60,12 @@ final class Secure_Guard_IP_Whitelist {
             return true;
         }
 
+        // Always allow server's own public/internal IPs to prevent self-blocking
+        $server_ips = $this->get_server_ips();
+        if (in_array($ip, $server_ips, true)) {
+            return true;
+        }
+
         $global_list = trim((string) ($this->settings['ip_whitelist'] ?? ''));
         $token_list = trim((string) ($token_ips ?? ''));
 
@@ -187,5 +193,50 @@ final class Secure_Guard_IP_Whitelist {
         }
 
         return '0.0.0.0';
+    }
+
+    /**
+     * Resolves the server's own public and internal IPs and caches them.
+     */
+    private function get_server_ips(): array {
+        $cache_key = 'sg_server_ips';
+        $ips = get_transient($cache_key);
+        if (is_array($ips)) {
+            return $ips;
+        }
+
+        $ips = [];
+        $server_addr = $_SERVER['SERVER_ADDR'] ?? '';
+        if ($server_addr && filter_var($server_addr, FILTER_VALIDATE_IP)) {
+            $ips[] = $server_addr;
+        }
+
+        // Resolve the site domain name to get its public IPs
+        $url = function_exists('site_url') ? site_url() : '';
+        if ($url) {
+            $host = parse_url($url, PHP_URL_HOST);
+            if ($host) {
+                // Get IPv4
+                $ip_v4 = gethostbyname($host);
+                if ($ip_v4 && $ip_v4 !== $host && filter_var($ip_v4, FILTER_VALIDATE_IP)) {
+                    $ips[] = $ip_v4;
+                }
+                // Get IPv6 (AAAA records)
+                if (function_exists('dns_get_record')) {
+                    $records = @dns_get_record($host, DNS_AAAA);
+                    if (is_array($records)) {
+                        foreach ($records as $record) {
+                            if (!empty($record['ipv6']) && filter_var($record['ipv6'], FILTER_VALIDATE_IP)) {
+                                    $ips[] = $record['ipv6'];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        $ips = array_unique(array_filter($ips));
+        set_transient($cache_key, $ips, DAY_IN_SECONDS);
+        return $ips;
     }
 }
