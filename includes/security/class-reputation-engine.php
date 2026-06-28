@@ -53,8 +53,18 @@ final class Secure_Guard_Reputation_Engine {
             set_transient($key, $velocity, 30); // 30 second window
 
             $threshold = (int) ($this->settings['lockdown_velocity_threshold'] ?? 500);
-            if ($velocity >= $threshold && $this->lock_state !== null) {
-                $this->lock_state->engage_lock(3600, 'Automatic: High attack velocity (' . $reason . ')');
+            if ($velocity >= $threshold) {
+                $minutes = max(1, (int) ($this->settings['reputation_block_minutes'] ?? 60)) * 2;
+                $now = time();
+                $expires_at = gmdate('Y-m-d H:i:s', $now + $minutes * MINUTE_IN_SECONDS);
+                $this->repository->upsert('ip-block:' . $ip, gmdate('Y-m-d H:i:s', $now), 1, $expires_at);
+
+                // Prime the transient immediately so subsequent requests are denied without a DB read.
+                $cache_key = 'sg_iblk_' . substr(md5('ip-block:' . $ip), 0, 16);
+                set_transient($cache_key, 1, $minutes * MINUTE_IN_SECONDS);
+
+                delete_transient($key);
+                delete_transient('sg_dashboard_stats');
             }
         }
     }

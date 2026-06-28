@@ -62,7 +62,9 @@ final class Secure_Guard_Traffic_Firewall {
         if ($this->lock_state->is_locked()) {
             $request_uri = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? '/'));
             if (!$this->lock_state->is_route_allowed_in_lockdown($request_uri)) {
-                $this->deny_request('System in lockdown', 503, $ip);
+                $status = (int) ($this->settings['lockdown_status_code'] ?? 503);
+                $message = !empty($this->settings['lockdown_message']) ? (string) $this->settings['lockdown_message'] : __('Service Unavailable', 'wp-secure-guard');
+                $this->deny_lockdown_request('System in lockdown', $status, $message, $ip);
             }
         }
 
@@ -155,7 +157,9 @@ final class Secure_Guard_Traffic_Firewall {
              if ($this->ip_whitelist->is_allowed($ip)) {
                  return;
              }
-             $this->deny_request('Emergency lockdown enforcement', 503, $ip);
+             $status = (int) ($this->settings['lockdown_status_code'] ?? 503);
+             $message = !empty($this->settings['lockdown_message']) ? (string) $this->settings['lockdown_message'] : __('Service Unavailable', 'wp-secure-guard');
+             $this->deny_lockdown_request('Emergency lockdown enforcement', $status, $message, $ip);
         }
     }
 
@@ -235,6 +239,15 @@ final class Secure_Guard_Traffic_Firewall {
 
         status_header($status);
         wp_die(esc_html__('Forbidden', 'wp-secure-guard'), esc_html__('Forbidden', 'wp-secure-guard'), ['response' => $status]);
+    }
+
+    private function deny_lockdown_request(string $reason, int $status, string $message, string $ip): void {
+        $endpoint = sanitize_text_field((string) ($_SERVER['REQUEST_URI'] ?? '/'));
+        $method = sanitize_text_field((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+        $this->logs->log($endpoint, $method, 'BLOCKED', $reason, ['ip' => $ip]);
+
+        status_header($status);
+        wp_die(esc_html($message), esc_html($message), ['response' => $status]);
     }
 
     private function is_sensitive_path_request(): bool {

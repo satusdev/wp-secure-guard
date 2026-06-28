@@ -139,6 +139,8 @@ final class Secure_Guard_Config {
             'progressive_throttle_enabled' => 1,
             'lock_state_enabled' => 1,
             'lockdown_velocity_threshold' => 500,
+            'lockdown_message' => 'This site is temporarily down for maintenance. Please check back later.',
+            'lockdown_status_code' => 503,
             'self_protection_enabled' => 1,
             'bot_fingerprint_enabled' => 1,
             'burst_limit' => 30,
@@ -179,6 +181,8 @@ final class Secure_Guard_Config {
         $settings['jwt_audience'] = trim((string) $settings['jwt_audience']) !== '' ? (string) $settings['jwt_audience'] : home_url('/');
         $settings['alert_on_token_expiry_days'] = max(0, (int) $settings['alert_on_token_expiry_days']);
         $settings['lockdown_velocity_threshold'] = max(1, (int) ($settings['lockdown_velocity_threshold'] ?? 500));
+        $settings['lockdown_message'] = sanitize_text_field((string) ($settings['lockdown_message'] ?? 'This site is temporarily down for maintenance. Please check back later.'));
+        $settings['lockdown_status_code'] = max(100, min(599, (int) ($settings['lockdown_status_code'] ?? 503)));
         $settings['reputation_decay_per_day'] = max(1, (int) ($settings['reputation_decay_per_day'] ?? 10));
         $settings['reputation_block_minutes'] = max(1, (int) ($settings['reputation_block_minutes'] ?? 60));
         $settings['bind_jwt_to_ip'] = !empty($settings['bind_jwt_to_ip']) ? 1 : 0;
@@ -295,6 +299,8 @@ final class Secure_Guard_Config {
             'progressive_throttle_enabled' => !empty($input['progressive_throttle_enabled']) ? 1 : 0,
             'lock_state_enabled' => !empty($input['lock_state_enabled']) ? 1 : 0,
             'lockdown_velocity_threshold' => max(1, (int) ($input['lockdown_velocity_threshold'] ?? $defaults['lockdown_velocity_threshold'])),
+            'lockdown_message' => sanitize_text_field((string) ($input['lockdown_message'] ?? $defaults['lockdown_message'])),
+            'lockdown_status_code' => max(100, min(599, (int) ($input['lockdown_status_code'] ?? $defaults['lockdown_status_code']))),
             'self_protection_enabled' => !empty($input['self_protection_enabled']) ? 1 : 0,
             'bot_fingerprint_enabled' => !empty($input['bot_fingerprint_enabled']) ? 1 : 0,
             'burst_limit' => max(1, (int) ($input['burst_limit'] ?? $defaults['burst_limit'])),

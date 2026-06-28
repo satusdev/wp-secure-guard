@@ -160,7 +160,9 @@ final class Secure_Guard_REST_Guard {
         $ip = $this->ip_whitelist->get_request_ip();
         
         if (!$this->ip_whitelist->is_allowed($ip) && $this->lock_state->is_locked() && !$this->lock_state->is_route_allowed_in_lockdown($route)) {
-            return new WP_Error('secure_guard_locked', __('System is in emergency lockdown mode.', 'wp-secure-guard'), ['status' => 503]);
+            $status = (int) ($this->settings['lockdown_status_code'] ?? 503);
+            $message = !empty($this->settings['lockdown_message']) ? (string) $this->settings['lockdown_message'] : __('System is in emergency lockdown mode.', 'wp-secure-guard');
+            return new WP_Error('secure_guard_locked', esc_html($message), ['status' => $status]);
         }
 
         if ($route === '') {
@@ -182,7 +184,9 @@ final class Secure_Guard_REST_Guard {
         // Final gatekeeper logic - could re-verify auth or state
         $ip = $this->ip_whitelist->get_request_ip();
         if (!$this->ip_whitelist->is_allowed($ip) && $this->lock_state->is_locked() && !is_user_logged_in()) {
-             return new WP_Error('secure_guard_locked_final', __('Access denied.', 'wp-secure-guard'), ['status' => 403]);
+             $status = (int) ($this->settings['lockdown_status_code'] ?? 403);
+             $message = !empty($this->settings['lockdown_message']) ? (string) $this->settings['lockdown_message'] : __('Access denied.', 'wp-secure-guard');
+             return new WP_Error('secure_guard_locked_final', esc_html($message), ['status' => $status]);
         }
         return $response;
     }

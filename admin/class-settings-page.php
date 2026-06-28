@@ -598,12 +598,21 @@ final class Secure_Guard_Settings_Page {
                 );
                 $this->row_checkbox($k, 'lock_state_enabled', $s,
                     __('Lockdown System', 'wp-secure-guard'),
-                    __('Enable the manual/automatic lockdown engine.', 'wp-secure-guard')
+                    __('Enable the manual lockdown engine (maintenance mode).', 'wp-secure-guard')
                 );
                 $this->row_number($k, 'lockdown_velocity_threshold', $s,
-                    __('Automatic Lockdown Velocity Threshold', 'wp-secure-guard'),
-                    __('Reputation points accumulated in a short window before automatic emergency lockdown is engaged.', 'wp-secure-guard'),
+                    __('IP Block Velocity Threshold', 'wp-secure-guard'),
+                    __('Reputation points accumulated by a single IP in a short window before that IP is automatically hard-blocked.', 'wp-secure-guard'),
                     1
+                );
+                $this->row_text($k, 'lockdown_message', $s,
+                    __('Lockdown Message', 'wp-secure-guard'),
+                    __('Custom message displayed to visitors when manual lockdown/maintenance mode is active.', 'wp-secure-guard')
+                );
+                $this->row_number($k, 'lockdown_status_code', $s,
+                    __('Lockdown HTTP Status Code', 'wp-secure-guard'),
+                    __('HTTP status code returned during lockdown/maintenance (default: 503).', 'wp-secure-guard'),
+                    100
                 );
                 break;
             case 'alerts':
