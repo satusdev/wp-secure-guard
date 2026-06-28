@@ -26,6 +26,7 @@ It is specifically engineered for decoupled architectures (headless WordPress), 
 - [Database Schema Reference](#database-schema-reference)
 - [Developer Hooks (Filters & Actions)](#developer-hooks-filters--actions)
 - [Troubleshooting & Recovery](#troubleshooting--recovery)
+- [Admin Interface Guide](docs/ADMIN_GUIDE.md)
 - [License](#license)
 
 ---
@@ -281,6 +282,11 @@ If an active lockdown blocks access to the admin panel:
     ```bash
     wp plugin deactivate secure-guard --skip-plugins
     ```
+---
+
+## Admin Interface Guide
+
+For a visual walkthrough and explanation of all administrative screens, settings panels, log audits, and recovery dashboards, please refer to the [Admin Interface Guide](docs/ADMIN_GUIDE.md).
 
 ---
 
