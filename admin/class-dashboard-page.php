@@ -25,7 +25,7 @@ final class Secure_Guard_Dashboard_Page {
         }
         check_admin_referer('sg_refresh_dashboard_stats');
         delete_transient('sg_dashboard_stats');
-        wp_safe_redirect(admin_url('admin.php?page=secure-guard&refreshed=1'));
+        wp_safe_redirect(admin_url('admin.php?page=wp-secure-guard&refreshed=1'));
         exit;
     }
 

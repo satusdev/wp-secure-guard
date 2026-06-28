@@ -80,7 +80,7 @@ final class Secure_Guard_File_Integrity_Monitor {
         delete_option(self::BASELINE_OPTION);
         delete_transient('secure_guard_integrity_alert_count');
 
-        wp_safe_redirect(admin_url('admin.php?page=secure-guard&baseline_reset=1'));
+        wp_safe_redirect(admin_url('admin.php?page=wp-secure-guard&baseline_reset=1'));
         exit;
     }
 

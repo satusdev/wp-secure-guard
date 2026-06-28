@@ -109,7 +109,7 @@ final class Secure_Guard_Alert_Manager {
         );
         $body .= __("Core WordPress files (wp-admin, wp-includes) have changed since the last recorded baseline.\n", 'wp-secure-guard');
         $body .= "\n" . __("To review and reset the baseline, visit the Security Dashboard:\n", 'wp-secure-guard');
-        $body .= admin_url('admin.php?page=secure-guard') . "\n";
+        $body .= admin_url('admin.php?page=wp-secure-guard') . "\n";
 
         $this->send($subj, $body);
     }

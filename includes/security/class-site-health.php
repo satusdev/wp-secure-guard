@@ -44,7 +44,7 @@ final class Secure_Guard_Site_Health {
             ),
             'actions'     => sprintf(
                 '<a href="%s">%s</a>',
-                esc_url(admin_url('admin.php?page=secure-guard')),
+                esc_url(admin_url('admin.php?page=wp-secure-guard')),
                 __('View Security Dashboard', 'wp-secure-guard')
             ),
             'test'        => 'secure_guard_status',

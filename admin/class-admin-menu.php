@@ -74,7 +74,7 @@ final class Secure_Guard_Admin_Menu {
 
     public function enqueue_admin_assets(string $hook): void {
         // Only load on this plugin's pages.
-        if (!str_contains($hook, 'wp-secure-guard')) {
+        if (!str_contains($hook, 'secure-guard')) {
             return;
         }
 
